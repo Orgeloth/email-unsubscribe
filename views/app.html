@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Unsubscribe Manager</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 18px; font-weight: 600; }
+
+    .user-menu {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #555;
+    }
+    .user-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #e0e0e0;
+    }
+    .user-avatar-placeholder {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #1a73e8;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .admin-link {
+      font-size: 13px;
+      color: #1a73e8;
+      text-decoration: none;
+      padding: 5px 10px;
+      border: 1px solid #1a73e8;
+      border-radius: 5px;
+    }
+    .admin-link:hover { background: #e8f0fe; }
+    .logout-btn {
+      background: none;
+      border: 1px solid #d0d0d0;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      color: #555;
+    }
+    .logout-btn:hover { background: #f5f5f5; }
+
+    main { max-width: 1100px; margin: 32px auto; padding: 0 24px; }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .range-btn {
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid #d0d0d0;
+      background: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      color: #555;
+      transition: all 0.15s;
+    }
+    .range-btn.active { background: #1a73e8; border-color: #1a73e8; color: #fff; }
+    .range-btn:hover:not(.active) { background: #f5f5f5; }
+    .fetch-btn {
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: none;
+      background: #1a73e8;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .fetch-btn:hover { background: #1557b0; }
+    .fetch-btn:disabled { background: #a0a0a0; cursor: not-allowed; }
+    .results-meta { font-size: 13px; color: #666; margin-left: auto; }
+
+    .table-wrap {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e0e0e0;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead { background: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #666;
+      white-space: nowrap;
+    }
+    td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+    .domain-cell { font-weight: 500; }
+    .email-cell { color: #555; font-size: 13px; word-break: break-all; }
+    .subject-cell { color: #555; font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .date-cell { color: #999; font-size: 12px; white-space: nowrap; }
+    .unsub-link {
+      display: inline-block;
+      padding: 4px 12px;
+      background: #fff3f3;
+      color: #c0392b;
+      border: 1px solid #f5c6c6;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .unsub-link:hover { background: #ffe0e0; border-color: #e08080; }
+
+    #loading { display: none; text-align: center; padding: 60px; color: #666; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #e0e0e0;
+      border-top-color: #1a73e8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #empty-state { display: none; text-align: center; padding: 60px; color: #999; }
+    #empty-state h3 { font-size: 18px; margin-bottom: 8px; color: #555; }
+    #error-msg {
+      display: none;
+      background: #fff3f3;
+      border: 1px solid #f5c6c6;
+      color: #c0392b;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email Unsubscribe Manager</h1>
+    <div class="user-menu">
+      <div class="user-info" id="user-info"></div>
+      <a href="/admin" id="admin-link" class="admin-link" style="display:none">Admin</a>
+      <button class="logout-btn" onclick="logout()">Sign out</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="controls">
+      <button class="range-btn active" id="btn-yesterday" onclick="setRange('yesterday')">Yesterday</button>
+      <button class="range-btn" id="btn-week" onclick="setRange('week')">Last 7 Days</button>
+      <button class="fetch-btn" id="fetch-btn" onclick="fetchEmails()">Fetch Emails</button>
+      <span class="results-meta" id="results-meta"></span>
+    </div>
+
+    <div id="error-msg"></div>
+    <div id="loading"><div class="spinner"></div><p>Scanning your emails...</p></div>
+    <div id="empty-state"><h3>No emails found</h3><p>No emails with unsubscribe links were found for this time period.</p></div>
+
+    <div class="table-wrap" id="table-wrap" style="display:none">
+      <table>
+        <thead>
+          <tr>
+            <th>Domain</th>
+            <th>Sender Email</th>
+            <th>Subject</th>
+            <th>Date</th>
+            <th>Unsubscribe</th>
+          </tr>
+        </thead>
+        <tbody id="email-tbody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    let currentRange = 'yesterday';
+
+    async function init() {
+      const res = await fetch('/auth/status');
+      const data = await res.json();
+      if (!data.authenticated) return window.location.href = '/';
+      renderUserInfo(data.user);
+      fetchEmails();
+    }
+
+    function renderUserInfo(user) {
+      const el = document.getElementById('user-info');
+      const initials = ((user.firstName?.[0] || '') + (user.lastName?.[0] || '')).toUpperCase() || user.email[0].toUpperCase();
+      const avatar = user.picture
+        ? `<img src="${escHtml(user.picture)}" class="user-avatar" referrerpolicy="no-referrer">`
+        : `<div class="user-avatar-placeholder">${initials}</div>`;
+      el.innerHTML = `${avatar} <span>${escHtml(user.firstName || user.email)}</span>`;
+      if (user.isAdmin) document.getElementById('admin-link').style.display = 'block';
+    }
+
+    function setRange(range) {
+      currentRange = range;
+      document.getElementById('btn-yesterday').classList.toggle('active', range === 'yesterday');
+      document.getElementById('btn-week').classList.toggle('active', range === 'week');
+    }
+
+    async function fetchEmails() {
+      const fetchBtn = document.getElementById('fetch-btn');
+      const loading = document.getElementById('loading');
+      const tableWrap = document.getElementById('table-wrap');
+      const emptyState = document.getElementById('empty-state');
+      const errorMsg = document.getElementById('error-msg');
+      const meta = document.getElementById('results-meta');
+
+      fetchBtn.disabled = true;
+      loading.style.display = 'block';
+      tableWrap.style.display = 'none';
+      emptyState.style.display = 'none';
+      errorMsg.style.display = 'none';
+      meta.textContent = '';
+
+      try {
+        const res = await fetch(`/api/emails?range=${currentRange}`);
+        const data = await res.json();
+        if (!res.ok) {
+          if (res.status === 401) return window.location.href = '/';
+          throw new Error(data.error || 'Failed to fetch emails');
+        }
+        loading.style.display = 'none';
+        if (!data.emails?.length) {
+          emptyState.style.display = 'block';
+        } else {
+          meta.textContent = `${data.total} email${data.total !== 1 ? 's' : ''} found`;
+          renderTable(data.emails);
+          tableWrap.style.display = 'block';
+        }
+      } catch (err) {
+        loading.style.display = 'none';
+        errorMsg.textContent = err.message;
+        errorMsg.style.display = 'block';
+      } finally {
+        fetchBtn.disabled = false;
+      }
+    }
+
+    function renderTable(emails) {
+      document.getElementById('email-tbody').innerHTML = emails.map(e => `
+        <tr>
+          <td class="domain-cell">${escHtml(e.domain)}</td>
+          <td class="email-cell">${escHtml(e.senderEmail)}</td>
+          <td class="subject-cell" title="${escHtml(e.subject)}">${escHtml(e.subject)}</td>
+          <td class="date-cell">${escHtml(e.date)}</td>
+          <td><a href="${escHtml(e.unsubscribeUrl)}" class="unsub-link" target="_blank" rel="noopener noreferrer">Unsubscribe</a></td>
+        </tr>
+      `).join('');
+    }
+
+    async function logout() {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    init();
+  </script>
+</body>
+</html>

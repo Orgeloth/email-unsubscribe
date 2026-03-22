@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-03-22
+
+### Added
+- DynamoDB session store (TTL auto-cleanup, survives Lambda restarts)
+- DynamoDB allowlist table (email, firstName, lastName, status, isAdmin, lastLoginAt, picture)
+- Landing page with "Remember me" option (24h default / 30 days)
+- Access denied page for unauthorized or disabled accounts
+- Admin page: manage users (add, enable/disable, toggle admin, remove) and invalidate sessions
+- Google profile scope: first name, last name, and avatar pulled automatically on first login
+- First admin seeded via CDK context (`--context adminEmail=you@gmail.com`)
+- Audit trail: lastLoginAt updated on every login
+
+### Changed
+- Sessions moved from cookies to DynamoDB (only session ID in cookie)
+- Auth callback now validates against allowlist before creating session
+- App and admin pages served via protected Express routes (not static files)
+
+---
+
 ## [1.2.0] - 2026-03-22
 
 ### Changed

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Access Denied</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 16px;
+      padding: 48px 40px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .icon { font-size: 40px; margin-bottom: 20px; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+    p { color: #666; font-size: 15px; line-height: 1.6; }
+    a { display: inline-block; margin-top: 24px; color: #1a73e8; text-decoration: none; font-size: 14px; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🔒</div>
+    <h1 id="title">Access Denied</h1>
+    <p id="message">Your account is not authorized to use this app. Please contact the administrator.</p>
+    <a href="/">Back to sign in</a>
+  </div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reason') === 'disabled') {
+      document.getElementById('title').textContent = 'Account Disabled';
+      document.getElementById('message').textContent = 'Your account has been disabled. Please contact the administrator.';
+    }
+  </script>
+</body>
+</html>

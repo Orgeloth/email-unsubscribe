@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Email Unsubscribe Manager</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 18px; font-weight: 600; }
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+    .btn-ghost {
+      background: none; border: 1px solid #d0d0d0; border-radius: 6px;
+      padding: 6px 14px; font-size: 13px; cursor: pointer; color: #555; text-decoration: none;
+      display: inline-flex; align-items: center;
+    }
+    .btn-ghost:hover { background: #f5f5f5; }
+
+    main { max-width: 1000px; margin: 32px auto; padding: 0 24px; }
+
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid #e0e0e0; padding-bottom: 0; }
+    .tab {
+      padding: 10px 20px; cursor: pointer; font-size: 14px; font-weight: 500;
+      color: #666; border: none; background: none; border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* Add user form */
+    .add-form {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.04em; }
+    .form-group input[type="email"] {
+      border: 1px solid #d0d0d0; border-radius: 6px;
+      padding: 8px 12px; font-size: 14px; width: 280px;
+    }
+    .form-group input[type="email"]:focus { outline: none; border-color: #1a73e8; }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 14px; padding-bottom: 8px; }
+    .checkbox-group input { width: 15px; height: 15px; cursor: pointer; }
+    .btn-primary {
+      background: #1a73e8; color: #fff; border: none; border-radius: 6px;
+      padding: 9px 20px; font-size: 14px; font-weight: 500; cursor: pointer;
+    }
+    .btn-primary:hover { background: #1557b0; }
+    .btn-primary:disabled { background: #a0a0a0; cursor: not-allowed; }
+
+    /* Tables */
+    .table-wrap {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead { background: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
+    th {
+      padding: 11px 16px; text-align: left;
+      font-weight: 600; font-size: 12px; text-transform: uppercase;
+      letter-spacing: 0.05em; color: #666; white-space: nowrap;
+    }
+    td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 3px 9px; border-radius: 12px;
+      font-size: 12px; font-weight: 500;
+    }
+    .badge-active { background: #e6f4ea; color: #1e7e34; }
+    .badge-disabled { background: #fce8e6; color: #c0392b; }
+    .badge-admin { background: #e8f0fe; color: #1a73e8; margin-left: 6px; }
+
+    .avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      object-fit: cover; vertical-align: middle; margin-right: 6px;
+    }
+    .avatar-placeholder {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #1a73e8; color: #fff; font-size: 11px; font-weight: 600;
+      vertical-align: middle; margin-right: 6px;
+    }
+
+    .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn-sm {
+      padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer;
+      border: 1px solid #d0d0d0; background: #fff; color: #555;
+    }
+    .btn-sm:hover { background: #f5f5f5; }
+    .btn-sm.danger { color: #c0392b; border-color: #f5c6c6; }
+    .btn-sm.danger:hover { background: #fff3f3; }
+
+    .empty-row td { text-align: center; color: #999; padding: 40px; }
+
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #323232; color: #fff;
+      padding: 12px 20px; border-radius: 8px;
+      font-size: 14px; opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .toast.show { opacity: 1; }
+
+    #error-banner {
+      background: #fff3f3; border: 1px solid #f5c6c6; color: #c0392b;
+      border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
+      font-size: 14px; display: none;
+    }
+
+    .meta { font-size: 13px; color: #888; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Admin Panel</h1>
+    <div class="header-actions">
+      <a href="/app" class="btn-ghost">← Back to App</a>
+      <button class="btn-ghost" onclick="logout()">Sign out</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="error-banner"></div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('users')">Users</button>
+      <button class="tab" onclick="showTab('sessions')">Active Sessions</button>
+    </div>
+
+    <!-- Users tab -->
+    <div id="tab-users" class="section active">
+      <div class="add-form">
+        <div class="form-group">
+          <label>Add User</label>
+          <input type="email" id="new-email" placeholder="user@gmail.com">
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="new-is-admin">
+          <label for="new-is-admin">Admin</label>
+        </div>
+        <button class="btn-primary" id="add-btn" onclick="addUser()">Add User</button>
+      </div>
+
+      <p class="meta" id="users-meta"></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Added</th>
+              <th>Last Login</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Sessions tab -->
+    <div id="tab-sessions" class="section">
+      <p class="meta" id="sessions-meta"></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Created</th>
+              <th>Expires</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="sessions-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let currentTab = 'users';
+    let usersData = [];
+
+    function showTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['users','sessions'][i] === tab));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+      if (tab === 'sessions') loadSessions();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-banner');
+      el.textContent = msg;
+      el.style.display = msg ? 'block' : 'none';
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatTs(ts) {
+      if (!ts) return '—';
+      return new Date(ts * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function escHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ---- Users ----
+    async function loadUsers() {
+      const res = await fetch('/api/admin/users');
+      if (!res.ok) { showError('Failed to load users'); return; }
+      const { users } = await res.json();
+      usersData = users;
+      renderUsers(users);
+    }
+
+    function renderUsers(users) {
+      document.getElementById('users-meta').textContent = `${users.length} user${users.length !== 1 ? 's' : ''}`;
+      const tbody = document.getElementById('users-tbody');
+      if (!users.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No users yet. Add one above.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = users.map(u => {
+        const initials = ((u.firstName?.[0] || '') + (u.lastName?.[0] || '')).toUpperCase() || (u.email[0] || '?').toUpperCase();
+        const avatar = u.picture
+          ? `<img src="${escHtml(u.picture)}" class="avatar" referrerpolicy="no-referrer">`
+          : `<span class="avatar-placeholder">${initials}</span>`;
+        const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || '<em style="color:#999">Pending login</em>';
+        const statusBadge = u.status === 'active'
+          ? `<span class="badge badge-active">Active</span>`
+          : `<span class="badge badge-disabled">Disabled</span>`;
+        const adminBadge = u.isAdmin ? `<span class="badge badge-admin">Admin</span>` : '';
+        const toggleStatusLabel = u.status === 'active' ? 'Disable' : 'Enable';
+        const toggleAdminLabel = u.isAdmin ? 'Remove Admin' : 'Make Admin';
+        return `
+          <tr>
+            <td>${avatar} ${name}${adminBadge}</td>
+            <td style="font-size:13px;color:#555">${escHtml(u.email)}</td>
+            <td>${statusBadge}</td>
+            <td style="font-size:13px;color:#999">${formatDate(u.addedAt)}</td>
+            <td style="font-size:13px;color:#999">${formatDate(u.lastLoginAt)}</td>
+            <td>
+              <div class="action-btns">
+                <button class="btn-sm" onclick="toggleStatus('${escHtml(u.email)}', '${u.status}')">${toggleStatusLabel}</button>
+                <button class="btn-sm" onclick="toggleAdmin('${escHtml(u.email)}', ${u.isAdmin})">${toggleAdminLabel}</button>
+                <button class="btn-sm danger" onclick="removeUser('${escHtml(u.email)}')">Remove</button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    async function addUser() {
+      const email = document.getElementById('new-email').value.trim();
+      const isAdmin = document.getElementById('new-is-admin').checked;
+      if (!email) return;
+      showError('');
+      document.getElementById('add-btn').disabled = true;
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, isAdmin }),
+      });
+      document.getElementById('add-btn').disabled = false;
+      if (!res.ok) {
+        const d = await res.json();
+        showError(d.error || 'Failed to add user');
+        return;
+      }
+      document.getElementById('new-email').value = '';
+      document.getElementById('new-is-admin').checked = false;
+      showToast(`${email} added`);
+      loadUsers();
+    }
+
+    async function toggleStatus(email, currentStatus) {
+      const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(email)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) { showError('Failed to update status'); return; }
+      showToast(`${email} ${newStatus}`);
+      loadUsers();
+    }
+
+    async function toggleAdmin(email, currentIsAdmin) {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(email)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAdmin: !currentIsAdmin }),
+      });
+      if (!res.ok) { showError('Failed to update admin status'); return; }
+      showToast(`Admin ${currentIsAdmin ? 'removed from' : 'granted to'} ${email}`);
+      loadUsers();
+    }
+
+    async function removeUser(email) {
+      if (!confirm(`Remove ${email} from the allowlist?`)) return;
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' });
+      if (!res.ok) { showError('Failed to remove user'); return; }
+      showToast(`${email} removed`);
+      loadUsers();
+    }
+
+    // ---- Sessions ----
+    async function loadSessions() {
+      const res = await fetch('/api/admin/sessions');
+      if (!res.ok) { showError('Failed to load sessions'); return; }
+      const { sessions } = await res.json();
+      document.getElementById('sessions-meta').textContent = `${sessions.length} active session${sessions.length !== 1 ? 's' : ''}`;
+      const tbody = document.getElementById('sessions-tbody');
+      if (!sessions.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No active sessions.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = sessions.map(s => `
+        <tr>
+          <td style="font-size:13px">${escHtml(s.email)}</td>
+          <td style="font-size:13px;color:#999">${formatTs(s.createdAt)}</td>
+          <td style="font-size:13px;color:#999">${formatTs(s.expiresAt)}</td>
+          <td><button class="btn-sm danger" onclick="invalidateSession('${escHtml(s.sessionId)}')">Invalidate</button></td>
+        </tr>
+      `).join('');
+    }
+
+    async function invalidateSession(sid) {
+      if (!confirm('Invalidate this session? The user will be signed out.')) return;
+      const res = await fetch(`/api/admin/sessions/${encodeURIComponent(sid)}`, { method: 'DELETE' });
+      if (!res.ok) { showError('Failed to invalidate session'); return; }
+      showToast('Session invalidated');
+      loadSessions();
+    }
+
+    async function logout() {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    }
+
+    // ---- Init ----
+    async function init() {
+      const res = await fetch('/auth/status');
+      const data = await res.json();
+      if (!data.authenticated || !data.user?.isAdmin) return window.location.href = '/';
+      loadUsers();
+    }
+
+    init();
+  </script>
+</body>
+</html>
