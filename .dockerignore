@@ -1,0 +1,8 @@
+node_modules
+.env
+*.env
+cdk
+.git
+.gitignore
+README.md
+CHANGELOG.md

@@ -1,0 +1,22 @@
+{
+  "name": "email-unsubscribe-cdk",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "deploy": "cdk deploy",
+    "destroy": "cdk destroy",
+    "diff": "cdk diff",
+    "synth": "cdk synth"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.130.0",
+    "constructs": "^10.3.0"
+  },
+  "devDependencies": {
+    "aws-cdk": "^2.130.0",
+    "ts-node": "^10.9.2",
+    "source-map-support": "^0.5.21",
+    "typescript": "^5.4.2"
+  }
+}

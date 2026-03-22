@@ -1,11 +1,16 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
+const MemoryStore = require('memorystore')(session);
 const { google } = require('googleapis');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProd = process.env.NODE_ENV === 'production';
+
+// Trust App Runner / reverse proxy for secure cookies and correct IPs
+if (isProd) app.set('trust proxy', 1);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -13,7 +18,8 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+  store: new MemoryStore({ checkPeriod: 86400000 }),
+  cookie: { secure: isProd, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 }
 }));
 
 function createOAuthClient() {
@@ -238,6 +244,9 @@ app.get('/api/emails', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch emails: ' + err.message });
   }
 });
+
+// Health check for App Runner
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
