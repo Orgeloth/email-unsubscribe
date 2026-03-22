@@ -1,0 +1,19 @@
+{
+  "name": "email-unsubscribe",
+  "version": "1.0.0",
+  "description": "View unsubscribe links from recent Gmail messages",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "googleapis": "^140.0.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
