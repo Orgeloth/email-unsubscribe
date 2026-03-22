@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const session = require('express-session');
-const MemoryStore = require('memorystore')(session);
+const cookieSession = require('cookie-session');
 const { google } = require('googleapis');
 const path = require('path');
 
@@ -9,17 +8,20 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 
-// Trust App Runner / reverse proxy for secure cookies and correct IPs
+// Trust Lambda/API Gateway proxy for correct HTTPS detection
 if (isProd) app.set('trust proxy', 1);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
-  resave: false,
-  saveUninitialized: false,
-  store: new MemoryStore({ checkPeriod: 86400000 }),
-  cookie: { secure: isProd, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 }
+
+// cookie-session: stateless — OAuth tokens stored in signed cookie, no DB needed
+app.use(cookieSession({
+  name: 'session',
+  keys: [process.env.SESSION_SECRET || 'dev-secret-change-me'],
+  maxAge: 24 * 60 * 60 * 1000,
+  secure: isProd,
+  httpOnly: true,
+  sameSite: 'lax',
 }));
 
 function createOAuthClient() {
@@ -71,7 +73,7 @@ app.get('/auth/status', (req, res) => {
 
 // Logout
 app.post('/auth/logout', (req, res) => {
-  req.session.destroy();
+  req.session = null;
   res.json({ ok: true });
 });
 
@@ -245,9 +247,14 @@ app.get('/api/emails', requireAuth, async (req, res) => {
   }
 });
 
-// Health check for App Runner
+// Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+// Lambda handler export
+const serverless = require('serverless-http');
+module.exports.handler = serverless(app);
+
+// Local dev server
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+}

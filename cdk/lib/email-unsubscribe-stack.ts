@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import * as apprunner from 'aws-cdk-lib/aws-apprunner';
-import * as assets from 'aws-cdk-lib/aws-ecr-assets';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -9,95 +8,66 @@ export class EmailUnsubscribeStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // Build Docker image and push to ECR automatically during cdk deploy
-    const imageAsset = new assets.DockerImageAsset(this, 'AppImage', {
-      directory: path.join(__dirname, '../..'),
-    });
+    // Read config from SSM Parameter Store (set these before deploying — see README)
+    // All stored as String type; Lambda environment variables are encrypted at rest by AWS KMS
+    const googleClientId = ssm.StringParameter.valueForStringParameter(
+      this, '/email-unsubscribe/google-client-id'
+    );
+    const googleClientSecret = ssm.StringParameter.valueForStringParameter(
+      this, '/email-unsubscribe/google-client-secret'
+    );
+    const sessionSecret = ssm.StringParameter.valueForStringParameter(
+      this, '/email-unsubscribe/session-secret'
+    );
+    const redirectUri = ssm.StringParameter.valueForStringParameter(
+      this, '/email-unsubscribe/redirect-uri'
+    );
 
-    // Role that allows App Runner to pull the image from ECR
-    const accessRole = new iam.Role(this, 'AppRunnerAccessRole', {
-      assumedBy: new iam.ServicePrincipal('build.apprunner.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AWSAppRunnerServicePolicyForECRAccess'
-        ),
-      ],
-    });
-
-    // Role for the running container — grants access to SSM Parameter Store
-    const instanceRole = new iam.Role(this, 'AppRunnerInstanceRole', {
-      assumedBy: new iam.ServicePrincipal('tasks.apprunner.amazonaws.com'),
-    });
-
-    instanceRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ['ssm:GetParameter', 'ssm:GetParameters'],
-        resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter/email-unsubscribe/*`,
+    // Bundle app code: copies source files and runs npm ci --only=production inside Docker
+    const appCode = lambda.Code.fromAsset(path.join(__dirname, '../..'), {
+      bundling: {
+        image: cdk.DockerImage.fromRegistry('node:20-alpine'),
+        command: [
+          'sh', '-c',
+          [
+            'cp -r /asset-input/server.js /asset-input/public /asset-input/package*.json /asset-output/',
+            'cd /asset-output',
+            'npm ci --only=production --silent',
+          ].join(' && '),
         ],
-      })
-    );
-
-    // Allow decryption of SecureString parameters
-    instanceRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ['kms:Decrypt'],
-        resources: ['*'],
-        conditions: {
-          StringEquals: { 'kms:ViaService': `ssm.${this.region}.amazonaws.com` },
-        },
-      })
-    );
-
-    // SSM parameter ARNs — you create these once before deploying (see README)
-    const ssmBase = `arn:aws:ssm:${this.region}:${this.account}:parameter/email-unsubscribe`;
-
-    const service = new apprunner.CfnService(this, 'AppRunnerService', {
-      serviceName: 'email-unsubscribe',
-      sourceConfiguration: {
-        authenticationConfiguration: {
-          accessRoleArn: accessRole.roleArn,
-        },
-        autoDeploymentsEnabled: false,
-        imageRepository: {
-          imageRepositoryType: 'ECR',
-          imageIdentifier: imageAsset.imageUri,
-          imageConfiguration: {
-            port: '3000',
-            runtimeEnvironmentVariables: [
-              { name: 'NODE_ENV', value: 'production' },
-              { name: 'PORT', value: '3000' },
-            ],
-            // Secrets are injected from SSM Parameter Store at runtime
-            runtimeEnvironmentSecrets: [
-              { name: 'GOOGLE_CLIENT_ID', value: `${ssmBase}/google-client-id` },
-              { name: 'GOOGLE_CLIENT_SECRET', value: `${ssmBase}/google-client-secret` },
-              { name: 'SESSION_SECRET', value: `${ssmBase}/session-secret` },
-              { name: 'REDIRECT_URI', value: `${ssmBase}/redirect-uri` },
-            ],
-          },
-        },
+        user: 'root',
       },
-      instanceConfiguration: {
-        cpu: '0.25 vCPU',
-        memory: '0.5 GB',
-        instanceRoleArn: instanceRole.roleArn,
-      },
-      healthCheckConfiguration: {
-        protocol: 'HTTP',
-        path: '/health',
-        interval: 10,
-        timeout: 5,
-        healthyThreshold: 1,
-        unhealthyThreshold: 5,
-      },
-      // Keep 1 instance provisioned (minimum for App Runner)
-      autoScalingConfigurationArn: undefined,
     });
 
-    new cdk.CfnOutput(this, 'ServiceUrl', {
-      value: `https://${service.attrServiceUrl}`,
-      description: 'App Runner URL — add this to Google Cloud Console redirect URIs',
+    const fn = new lambda.Function(this, 'AppFunction', {
+      functionName: 'email-unsubscribe',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'server.handler',
+      code: appCode,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        NODE_ENV: 'production',
+        GOOGLE_CLIENT_ID: googleClientId,
+        GOOGLE_CLIENT_SECRET: googleClientSecret,
+        SESSION_SECRET: sessionSecret,
+        REDIRECT_URI: redirectUri,
+      },
+    });
+
+    // Lambda Function URL — provides HTTPS endpoint with no API Gateway cost
+    const fnUrl = fn.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE,
+      cors: {
+        allowedOrigins: ['*'],
+        allowedMethods: [lambda.HttpMethod.ALL],
+        allowedHeaders: ['*'],
+      },
+    });
+
+    new cdk.CfnOutput(this, 'FunctionUrl', {
+      value: fnUrl.url,
+      description: 'Lambda Function URL — add <this>/auth/callback to Google Cloud Console',
     });
   }
 }

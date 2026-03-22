@@ -2,17 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-03-22
+
+### Changed
+- Switched from App Runner to Lambda + Function URL (effectively free for <20 users)
+- Replaced `express-session` + `memorystore` with `cookie-session` (stateless, no DB needed)
+- Lambda handler exported via `serverless-http`; local `npm start` still works unchanged
+
+---
+
 ## [1.1.0] - 2026-03-22
 
 ### Added
 - AWS CDK stack for App Runner deployment with ECR and SSM Parameter Store
 - Dockerfile and `.dockerignore` for container builds
-- `/health` endpoint for App Runner health checks
-- `memorystore` session store (proper TTL and pruning vs default MemoryStore)
+- `/health` endpoint for health checks
+- `memorystore` session store
 
 ### Changed
 - Session cookies now use `secure: true` in production
-- Express now trusts proxy headers in production (required for App Runner HTTPS)
+- Express now trusts proxy headers in production
 
 ---
 

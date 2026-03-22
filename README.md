@@ -60,15 +60,17 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## AWS Deployment (App Runner + CDK)
+## AWS Deployment (Lambda + CDK)
 
 ### Architecture
 
 | Service | Purpose | Cost |
 |---|---|---|
-| **App Runner** | Hosts the container, HTTPS included | ~$10–15/month |
-| **ECR** | Docker image storage | 500 MB free |
+| **Lambda** | Runs the app, serverless | ~$0/month (free tier) |
+| **Lambda Function URL** | HTTPS endpoint, no API Gateway needed | Free |
 | **SSM Parameter Store** | Secrets storage | Free (standard tier) |
+
+Lambda free tier: 1M requests/month + 400,000 GB-seconds compute. For <20 users this is effectively **free**.
 
 ### Prerequisites
 
@@ -93,14 +95,14 @@ aws ssm put-parameter --name "/email-unsubscribe/google-client-id" \
   --value "YOUR_CLIENT_ID" --type String
 
 aws ssm put-parameter --name "/email-unsubscribe/google-client-secret" \
-  --value "YOUR_CLIENT_SECRET" --type SecureString
+  --value "YOUR_CLIENT_SECRET" --type String
 
 aws ssm put-parameter --name "/email-unsubscribe/session-secret" \
-  --value "$(openssl rand -hex 32)" --type SecureString
+  --value "any-long-random-string" --type String
 
 # Placeholder — you'll update this after the first deploy
 aws ssm put-parameter --name "/email-unsubscribe/redirect-uri" \
-  --value "https://placeholder.awsapprunner.com/auth/callback" --type String
+  --value "https://placeholder/auth/callback" --type String
 ```
 
 ### Step 3: Deploy
@@ -114,23 +116,23 @@ CDK will build the Docker image, push it to ECR, and create the App Runner servi
 
 ```
 Outputs:
-EmailUnsubscribeStack.ServiceUrl = https://xxxxxxxxxx.us-east-1.awsapprunner.com
+EmailUnsubscribeStack.FunctionUrl = https://xxxxxxxxxx.lambda-url.us-east-1.on.aws/
 ```
 
 ### Step 4: Update the redirect URI
 
-Once you have the App Runner URL:
+Once you have the Lambda Function URL:
 
 1. Update the SSM parameter:
 ```bash
 aws ssm put-parameter --name "/email-unsubscribe/redirect-uri" \
-  --value "https://YOUR-APP-RUNNER-URL/auth/callback" \
+  --value "https://YOUR-FUNCTION-URL/auth/callback" \
   --type String --overwrite
 ```
 
 2. Add the same URL to Google Cloud Console:
    - APIs & Services → Credentials → your OAuth client → Authorized redirect URIs
-   - Add: `https://YOUR-APP-RUNNER-URL/auth/callback`
+   - Add: `https://YOUR-FUNCTION-URL/auth/callback`
 
 3. Redeploy to pick up the updated parameter:
 ```bash
