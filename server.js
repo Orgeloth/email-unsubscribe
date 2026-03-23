@@ -10,6 +10,11 @@ const PORT = process.env.PORT || 3000;
 const SESSIONS_TABLE = process.env.SESSIONS_TABLE;
 const ALLOWLIST_TABLE = process.env.ALLOWLIST_TABLE;
 
+// Fail fast in production if required secrets are missing
+if (isProd && !process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET environment variable is required in production');
+}
+
 // ---------------------------------------------------------------------------
 // DynamoDB client (production only — skipped in local dev)
 // ---------------------------------------------------------------------------
@@ -101,8 +106,29 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: sessionStore,
-  cookie: { secure: isProd, httpOnly: true, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 },
+  cookie: { secure: isProd, httpOnly: true, sameSite: 'strict', maxAge: 24 * 60 * 60 * 1000 },
 }));
+
+// ---------------------------------------------------------------------------
+// CSRF protection
+// ---------------------------------------------------------------------------
+const crypto = require('crypto');
+
+function getCsrfToken(req) {
+  if (!req.session.csrfToken) {
+    req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+  }
+  return req.session.csrfToken;
+}
+
+function requireCsrf(req, res, next) {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  const token = req.headers['x-csrf-token'];
+  if (!token || token !== req.session.csrfToken) {
+    return res.status(403).json({ error: 'Invalid CSRF token' });
+  }
+  next();
+}
 
 // ---------------------------------------------------------------------------
 // Auth helpers
@@ -282,10 +308,10 @@ app.get('/auth/callback', async (req, res) => {
 app.get('/auth/status', (req, res) => {
   if (!req.session.user) return res.json({ authenticated: false });
   const { email, firstName, lastName, picture, isAdmin } = req.session.user;
-  res.json({ authenticated: true, user: { email, firstName, lastName, picture, isAdmin } });
+  res.json({ authenticated: true, csrfToken: getCsrfToken(req), user: { email, firstName, lastName, picture, isAdmin } });
 });
 
-app.post('/auth/logout', (req, res) => {
+app.post('/auth/logout', requireCsrf, (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
 
@@ -410,7 +436,7 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+app.post('/api/admin/users', requireAuth, requireAdmin, requireCsrf, async (req, res) => {
   const { email, isAdmin = false } = req.body;
   if (!email) return res.status(400).json({ error: 'email is required' });
   try {
@@ -432,7 +458,7 @@ app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.patch('/api/admin/users/:email', requireAuth, requireAdmin, async (req, res) => {
+app.patch('/api/admin/users/:email', requireAuth, requireAdmin, requireCsrf, async (req, res) => {
   const { email } = req.params;
   const allowed = ['status', 'isAdmin', 'firstName', 'lastName'];
   const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)));
@@ -445,7 +471,7 @@ app.patch('/api/admin/users/:email', requireAuth, requireAdmin, async (req, res)
   }
 });
 
-app.delete('/api/admin/users/:email', requireAuth, requireAdmin, async (req, res) => {
+app.delete('/api/admin/users/:email', requireAuth, requireAdmin, requireCsrf, async (req, res) => {
   try {
     await deleteAllowlistEntry(req.params.email);
     res.json({ ok: true });
@@ -462,7 +488,7 @@ app.get('/api/admin/sessions', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/admin/sessions/:sid', requireAuth, requireAdmin, async (req, res) => {
+app.delete('/api/admin/sessions/:sid', requireAuth, requireAdmin, requireCsrf, async (req, res) => {
   try {
     await new Promise((resolve, reject) => sessionStore.destroy(req.params.sid, err => err ? reject(err) : resolve()));
     res.json({ ok: true });

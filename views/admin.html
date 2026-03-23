@@ -213,6 +213,7 @@
   <script>
     let currentTab = 'users';
     let usersData = [];
+    let csrfToken = '';
 
     function showTab(tab) {
       currentTab = tab;
@@ -304,7 +305,7 @@
       document.getElementById('add-btn').disabled = true;
       const res = await fetch('/api/admin/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
         body: JSON.stringify({ email, isAdmin }),
       });
       document.getElementById('add-btn').disabled = false;
@@ -323,7 +324,7 @@
       const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
       const res = await fetch(`/api/admin/users/${encodeURIComponent(email)}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
         body: JSON.stringify({ status: newStatus }),
       });
       if (!res.ok) { showError('Failed to update status'); return; }
@@ -334,7 +335,7 @@
     async function toggleAdmin(email, currentIsAdmin) {
       const res = await fetch(`/api/admin/users/${encodeURIComponent(email)}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
         body: JSON.stringify({ isAdmin: !currentIsAdmin }),
       });
       if (!res.ok) { showError('Failed to update admin status'); return; }
@@ -344,7 +345,7 @@
 
     async function removeUser(email) {
       if (!confirm(`Remove ${email} from the allowlist?`)) return;
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE', headers: { 'X-CSRF-Token': csrfToken } });
       if (!res.ok) { showError('Failed to remove user'); return; }
       showToast(`${email} removed`);
       loadUsers();
@@ -373,14 +374,14 @@
 
     async function invalidateSession(sid) {
       if (!confirm('Invalidate this session? The user will be signed out.')) return;
-      const res = await fetch(`/api/admin/sessions/${encodeURIComponent(sid)}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/sessions/${encodeURIComponent(sid)}`, { method: 'DELETE', headers: { 'X-CSRF-Token': csrfToken } });
       if (!res.ok) { showError('Failed to invalidate session'); return; }
       showToast('Session invalidated');
       loadSessions();
     }
 
     async function logout() {
-      await fetch('/auth/logout', { method: 'POST' });
+      await fetch('/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } });
       window.location.href = '/';
     }
 
@@ -389,6 +390,7 @@
       const res = await fetch('/auth/status');
       const data = await res.json();
       if (!data.authenticated || !data.user?.isAdmin) return window.location.href = '/';
+      csrfToken = data.csrfToken;
       loadUsers();
     }
 

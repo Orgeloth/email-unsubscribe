@@ -88,13 +88,10 @@ export class EmailUnsubscribeStack extends cdk.Stack {
     // ---------------------------------------------------------------------------
     // Lambda Function URL (HTTPS endpoint, no API Gateway cost)
     // ---------------------------------------------------------------------------
+    // No CORS config — the frontend is served by the same Lambda (same-origin),
+    // so cross-origin access is intentionally blocked at the infrastructure level.
     const fnUrl = fn.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE,
-      cors: {
-        allowedOrigins: ['*'],
-        allowedMethods: [lambda.HttpMethod.ALL],
-        allowedHeaders: ['*'],
-      },
     });
 
     // ---------------------------------------------------------------------------

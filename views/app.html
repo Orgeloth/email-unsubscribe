@@ -215,11 +215,13 @@
 
   <script>
     let currentRange = 'yesterday';
+    let csrfToken = '';
 
     async function init() {
       const res = await fetch('/auth/status');
       const data = await res.json();
       if (!data.authenticated) return window.location.href = '/';
+      csrfToken = data.csrfToken;
       renderUserInfo(data.user);
       fetchEmails();
     }
@@ -292,7 +294,7 @@
     }
 
     async function logout() {
-      await fetch('/auth/logout', { method: 'POST' });
+      await fetch('/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } });
       window.location.href = '/';
     }
 
