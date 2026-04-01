@@ -355,6 +355,12 @@ export class EmailUnsubscribeStack extends cdk.Stack {
         resources: [`arn:aws:iam::${this.account}:role/cdk-*`],
       }));
 
+      // Allow the role to invalidate the CloudFront cache post-deploy
+      deployRole.addToPolicy(new iam.PolicyStatement({
+        actions: ['cloudfront:ListDistributions', 'cloudfront:CreateInvalidation'],
+        resources: ['*'],
+      }));
+
       new cdk.CfnOutput(this, 'GitHubActionsRoleArn', {
         value: deployRole.roleArn,
         description: 'Set this as the AWS_DEPLOY_ROLE_ARN secret in GitHub',
