@@ -4,208 +4,303 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Email Unsubscribe Manager</title>
+  <link rel="stylesheet" href="/app.css">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <script>
+    (function() {
+      const t = localStorage.getItem('theme');
+      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('dark');
+    })();
+  </script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f0f2f5;
-      color: #1a1a1a;
-      min-height: 100vh;
-    }
-    header {
-      background: #fff;
-      border-bottom: 1px solid #e0e0e0;
-      padding: 0 24px;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    header h1 { font-size: 18px; font-weight: 600; }
+    main { max-width: 1100px; margin: 28px auto; padding: 0 24px; }
 
-    .user-menu {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    /* User info */
     .user-info {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      color: #555;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13.5px; color: var(--text-2);
     }
     .user-avatar {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      object-fit: cover;
-      background: #e0e0e0;
+      width: 28px; height: 28px; border-radius: 50%;
+      object-fit: cover; border: 1.5px solid var(--border);
     }
-    .user-avatar-placeholder {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background: #1a73e8;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      font-weight: 600;
+    .avatar-initials {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; flex-shrink: 0;
     }
     .admin-link {
-      font-size: 13px;
-      color: #1a73e8;
-      text-decoration: none;
-      padding: 5px 10px;
-      border: 1px solid #1a73e8;
-      border-radius: 5px;
+      font-size: 12.5px; color: var(--accent); text-decoration: none;
+      padding: 5px 10px; border: 1px solid var(--accent);
+      border-radius: 6px; font-weight: 500;
+      transition: background var(--transition);
     }
-    .admin-link:hover { background: #e8f0fe; }
-    .logout-btn {
-      background: none;
-      border: 1px solid #d0d0d0;
-      border-radius: 6px;
-      padding: 6px 14px;
-      font-size: 13px;
-      cursor: pointer;
-      color: #555;
-    }
-    .logout-btn:hover { background: #f5f5f5; }
+    .admin-link:hover { background: var(--accent-muted); }
 
-    main { max-width: 1100px; margin: 32px auto; padding: 0 24px; }
-
+    /* Controls */
     .controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .range-group {
+      display: flex; gap: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-xs); overflow: hidden;
+      box-shadow: var(--shadow-sm);
     }
     .range-btn {
-      padding: 8px 20px;
-      border-radius: 20px;
-      border: 1px solid #d0d0d0;
-      background: #fff;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      color: #555;
-      transition: all 0.15s;
+      padding: 7px 16px; border: none; background: transparent;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      color: var(--text-2);
+      transition: background var(--transition), color var(--transition);
     }
-    .range-btn.active { background: #1a73e8; border-color: #1a73e8; color: #fff; }
-    .range-btn:hover:not(.active) { background: #f5f5f5; }
-    .fetch-btn {
-      padding: 8px 20px;
-      border-radius: 20px;
-      border: none;
-      background: #1a73e8;
-      color: #fff;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .fetch-btn:hover { background: #1557b0; }
-    .fetch-btn:disabled { background: #a0a0a0; cursor: not-allowed; }
-    .results-meta { font-size: 13px; color: #666; margin-left: auto; }
+    .range-btn + .range-btn { border-left: 1px solid var(--border); }
+    .range-btn.active { background: var(--accent); color: #fff; }
+    .range-btn:hover:not(.active) { background: var(--surface-2); color: var(--text-1); }
 
-    .table-wrap {
-      background: #fff;
-      border-radius: 10px;
-      border: 1px solid #e0e0e0;
-      overflow: hidden;
-    }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    thead { background: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
-    th {
-      padding: 12px 16px;
-      text-align: left;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #666;
-      white-space: nowrap;
-    }
-    td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: #fafafa; }
-    .domain-cell { font-weight: 500; }
-    .email-cell { color: #555; font-size: 13px; word-break: break-all; }
-    .subject-cell { color: #555; font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .date-cell { color: #999; font-size: 12px; white-space: nowrap; }
-    .unsub-link {
-      display: inline-block;
-      padding: 4px 12px;
-      background: #fff3f3;
-      color: #c0392b;
-      border: 1px solid #f5c6c6;
-      border-radius: 4px;
-      text-decoration: none;
-      font-size: 12px;
-      font-weight: 500;
-      white-space: nowrap;
-      transition: background 0.15s;
-    }
-    .unsub-link:hover { background: #ffe0e0; border-color: #e08080; }
+    .results-meta { font-size: 13px; color: var(--text-3); margin-left: auto; }
 
-    #loading { display: none; text-align: center; padding: 60px; color: #666; }
-    .spinner {
-      width: 36px; height: 36px;
-      border: 3px solid #e0e0e0;
-      border-top-color: #1a73e8;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 16px;
+    /* Group toggle button */
+    .group-toggle-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 12px; font-size: 13px; font-weight: 500;
+      color: var(--text-2); background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius-xs);
+      cursor: pointer; white-space: nowrap; box-shadow: var(--shadow-sm);
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #empty-state { display: none; text-align: center; padding: 60px; color: #999; }
-    #empty-state h3 { font-size: 18px; margin-bottom: 8px; color: #555; }
-    #error-msg {
-      display: none;
-      background: #fff3f3;
-      border: 1px solid #f5c6c6;
-      color: #c0392b;
-      border-radius: 8px;
-      padding: 14px 18px;
-      margin-bottom: 20px;
-      font-size: 14px;
+    .group-toggle-btn:hover { background: var(--surface-2); color: var(--text-1); }
+    .group-toggle-btn.active {
+      color: var(--accent); border-color: var(--accent);
+      background: var(--accent-muted);
     }
+
+    /* Sortable headers */
+    th.sortable {
+      cursor: pointer; user-select: none;
+      transition: color var(--transition);
+    }
+    th.sortable:hover { color: var(--text-2); }
+    th.sort-active { color: var(--accent) !important; }
+    .sort-indicator { margin-left: 4px; font-size: 9px; opacity: 0.5; }
+    th.sort-active .sort-indicator { opacity: 1; }
+
+    /* Table extras */
+    .domain-cell { font-weight: 500; color: var(--text-1); }
+    .email-cell  { color: var(--text-2); font-size: 13px; word-break: break-all; }
+    .subject-cell {
+      color: var(--text-2); font-size: 13px;
+      max-width: 260px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .date-cell { color: var(--text-3); font-size: 12px; white-space: nowrap; }
+
+    /* Group rows */
+    .group-row { cursor: pointer; }
+    .expand-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; margin-right: 5px; flex-shrink: 0;
+      color: var(--text-3); transition: transform var(--transition);
+    }
+    .expand-icon.open { transform: rotate(90deg); }
+    .count-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px; padding: 0 5px;
+      background: var(--accent-muted); color: var(--accent);
+      border-radius: 10px; font-size: 11px; font-weight: 600; margin-left: 7px;
+    }
+
+    /* Sub-rows (expanded emails within a group) */
+    .sub-row td { background: var(--surface-2) !important; }
+    .sub-row:hover td { filter: brightness(0.97); }
+    .sub-row td:first-child { padding-left: 36px; color: var(--text-3); font-size: 12px; }
+
+    .unsub-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 11px;
+      background: var(--danger-muted);
+      color: var(--danger);
+      border: 1px solid var(--danger-border);
+      border-radius: 6px;
+      text-decoration: none; font-size: 12px; font-weight: 500;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+      white-space: nowrap; cursor: pointer;
+    }
+    .unsub-btn:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .unsub-btn.done {
+      background: var(--success-muted); color: var(--success);
+      border-color: var(--success-muted);
+    }
+    .unsub-btn.done:hover { background: var(--success); color: #fff; border-color: var(--success); }
+    .unsub-btn.one-click {
+      background: var(--accent-muted); color: var(--accent);
+      border-color: rgba(99,102,241,.35);
+    }
+    .unsub-btn.one-click:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .unsub-btn:disabled { opacity: 0.6; cursor: not-allowed; pointer-events: none; }
+    .btn-spinner {
+      display: inline-block; width: 10px; height: 10px;
+      border: 1.5px solid currentColor; border-top-color: transparent;
+      border-radius: 50%; animation: btn-spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes btn-spin { to { transform: rotate(360deg); } }
+
+    /* Checkbox column */
+    .check-cell { width: 36px; padding: 0 8px !important; text-align: center; }
+    .row-check { cursor: pointer; accent-color: var(--accent); width: 14px; height: 14px; }
+
+    /* Search */
+    .search-wrap {
+      position: relative; flex: 1; min-width: 160px; max-width: 260px;
+    }
+    .search-icon {
+      position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+      color: var(--text-3); pointer-events: none;
+    }
+    .search-input {
+      width: 100%; padding: 7px 10px 7px 30px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-xs); font-size: 13px; color: var(--text-1);
+      outline: none; box-shadow: var(--shadow-sm);
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+    }
+    .search-input::placeholder { color: var(--text-3); }
+    .results-meta { font-size: 13px; color: var(--text-3); white-space: nowrap; }
+
+    /* Privacy policy acceptance modal */
+    .policy-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,.55); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .policy-overlay.hidden { display: none; }
+    .policy-modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow-lg);
+      max-width: 480px; width: 100%; padding: 32px 28px 24px;
+    }
+    .policy-modal h2 {
+      font-size: 17px; font-weight: 700; color: var(--text-1);
+      margin-bottom: 8px; letter-spacing: -.02em;
+    }
+    .policy-modal .policy-updated {
+      font-size: 12px; color: var(--accent); font-weight: 600;
+      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px;
+    }
+    .policy-modal p {
+      font-size: 13.5px; color: var(--text-2); line-height: 1.65;
+      margin-bottom: 12px;
+    }
+    .policy-modal p:last-of-type { margin-bottom: 22px; }
+    .policy-modal a { color: var(--accent); text-decoration: none; }
+    .policy-modal a:hover { text-decoration: underline; }
+    .policy-modal-actions {
+      display: flex; gap: 10px; justify-content: flex-end;
+    }
+    .policy-decline-btn {
+      padding: 8px 18px; font-size: 13.5px; font-weight: 500;
+      color: var(--text-2); background: transparent;
+      border: 1px solid var(--border); border-radius: var(--radius-xs);
+      cursor: pointer; transition: background var(--transition), color var(--transition);
+    }
+    .policy-decline-btn:hover { background: var(--surface-2); color: var(--text-1); }
+    .policy-accept-btn {
+      padding: 8px 20px; font-size: 13.5px; font-weight: 600;
+      color: #fff; background: var(--accent);
+      border: none; border-radius: var(--radius-xs);
+      cursor: pointer; transition: opacity var(--transition);
+    }
+    .policy-accept-btn:hover { opacity: .88; }
+    .policy-accept-btn:disabled { opacity: .55; cursor: not-allowed; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Email Unsubscribe Manager</h1>
-    <div class="user-menu">
+
+  <header class="app-header">
+    <div class="header-brand">
+      <svg class="header-logo" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" fill="none">
+        <defs>
+          <linearGradient id="hg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+        <rect width="48" height="48" rx="11" fill="url(#hg)"/>
+        <rect x="8" y="15" width="28" height="19" rx="2.5" stroke="white" stroke-width="2" stroke-opacity="0.9"/>
+        <path d="M8 18L22 27L36 18" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-opacity="0.9"/>
+        <path d="M30 22L39 13" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <path d="M34.5 13H39V17.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1>Email Unsubscribe Manager</h1>
+    </div>
+    <div class="header-right">
       <div class="user-info" id="user-info"></div>
       <a href="/admin" id="admin-link" class="admin-link" style="display:none">Admin</a>
-      <button class="logout-btn" onclick="logout()">Sign out</button>
+      <a href="/help" class="admin-link">Help</a>
+      <button class="theme-toggle" onclick="toggleDark()" title="Toggle dark mode">
+        <svg class="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Sign out</button>
     </div>
   </header>
 
   <main>
     <div class="controls">
-      <button class="range-btn active" id="btn-yesterday" onclick="setRange('yesterday')">Yesterday</button>
-      <button class="range-btn" id="btn-week" onclick="setRange('week')">Last 7 Days</button>
-      <button class="fetch-btn" id="fetch-btn" onclick="fetchEmails()">Fetch Emails</button>
+      <div class="range-group">
+        <button class="range-btn active" id="btn-yesterday" onclick="setRange('yesterday')">Yesterday</button>
+        <button class="range-btn" id="btn-week" onclick="setRange('week')">Last 7 Days</button>
+        <button class="range-btn" id="btn-month" onclick="setRange('month')">Last 30 Days</button>
+      </div>
+      <button class="btn btn-primary btn-sm" id="fetch-btn" onclick="fetchEmails()">Fetch Emails</button>
+      <button class="group-toggle-btn active" id="group-btn" onclick="toggleGrouped()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Group by Domain
+      </button>
+      <button class="btn btn-primary btn-sm" id="bulk-btn" onclick="bulkOpen()" style="display:none">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Open Selected (<span id="bulk-count">0</span>)
+      </button>
+      <div class="search-wrap">
+        <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" id="search-input" placeholder="Filter by domain or subject…" oninput="onSearch()">
+      </div>
+      <button class="btn btn-ghost btn-sm" id="export-btn" onclick="exportCsv()" style="display:none" title="Export current results to CSV">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export CSV
+      </button>
       <span class="results-meta" id="results-meta"></span>
     </div>
 
-    <div id="error-msg"></div>
-    <div id="loading"><div class="spinner"></div><p>Scanning your emails...</p></div>
-    <div id="empty-state"><h3>No emails found</h3><p>No emails with unsubscribe links were found for this time period.</p></div>
+    <div id="error-msg" class="alert alert-error" style="display:none"></div>
+
+    <div id="loading" class="state-box" style="display:none">
+      <div class="spinner"></div>
+      <p>Scanning your emails…</p>
+    </div>
+
+    <div id="empty-state" class="state-box" style="display:none">
+      <h3>No emails found</h3>
+      <p>No emails with unsubscribe links for this time period.</p>
+    </div>
 
     <div class="table-wrap" id="table-wrap" style="display:none">
       <table>
         <thead>
-          <tr>
-            <th>Domain</th>
-            <th>Sender Email</th>
-            <th>Subject</th>
-            <th>Date</th>
-            <th>Unsubscribe</th>
+          <tr id="thead-row">
+            <th class="check-cell"><input type="checkbox" id="select-all" class="row-check" title="Select all" onchange="toggleSelectAll(this)"></th>
+            <th class="sortable sort-active" data-col="domain" onclick="setSortCol('domain')">Domain <span class="sort-indicator">▲</span></th>
+            <th class="sortable" data-col="senderEmail" onclick="setSortCol('senderEmail')">Sender <span class="sort-indicator">⇅</span></th>
+            <th class="sortable" data-col="subject" onclick="setSortCol('subject')">Subject <span class="sort-indicator">⇅</span></th>
+            <th class="sortable" data-col="date" onclick="setSortCol('date')">Date <span class="sort-indicator">⇅</span></th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody id="email-tbody"></tbody>
@@ -216,46 +311,328 @@
   <script>
     let currentRange = 'yesterday';
     let csrfToken = '';
+    let allEmails = [];
+    let sortCol = 'domain';
+    let sortDir = 'asc';
+    let isGrouped = true;
+    let expandedDomains = new Set();
+    let unsubscribedDomains = new Set();
+    let searchQuery = '';
 
-    async function init() {
-      const res = await fetch('/auth/status');
-      const data = await res.json();
-      if (!data.authenticated) return window.location.href = '/';
-      csrfToken = data.csrfToken;
-      renderUserInfo(data.user);
-      fetchEmails();
+    function toggleDark() {
+      const dark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
     }
 
     function renderUserInfo(user) {
       const el = document.getElementById('user-info');
       const initials = ((user.firstName?.[0] || '') + (user.lastName?.[0] || '')).toUpperCase() || user.email[0].toUpperCase();
       const avatar = user.picture
-        ? `<img src="${escHtml(user.picture)}" class="user-avatar" referrerpolicy="no-referrer">`
-        : `<div class="user-avatar-placeholder">${initials}</div>`;
-      el.innerHTML = `${avatar} <span>${escHtml(user.firstName || user.email)}</span>`;
-      if (user.isAdmin) document.getElementById('admin-link').style.display = 'block';
+        ? `<img src="${esc(user.picture)}" class="user-avatar" referrerpolicy="no-referrer">`
+        : `<div class="avatar-initials">${initials}</div>`;
+      el.innerHTML = `${avatar}<span>${esc(user.firstName || user.email)}</span>`;
+      if (user.isAdmin) document.getElementById('admin-link').style.display = 'inline-flex';
     }
 
     function setRange(range) {
       currentRange = range;
-      document.getElementById('btn-yesterday').classList.toggle('active', range === 'yesterday');
-      document.getElementById('btn-week').classList.toggle('active', range === 'week');
+      ['yesterday', 'week', 'month'].forEach(r =>
+        document.getElementById(`btn-${r}`).classList.toggle('active', range === r)
+      );
     }
 
-    async function fetchEmails() {
-      const fetchBtn = document.getElementById('fetch-btn');
-      const loading = document.getElementById('loading');
-      const tableWrap = document.getElementById('table-wrap');
-      const emptyState = document.getElementById('empty-state');
-      const errorMsg = document.getElementById('error-msg');
-      const meta = document.getElementById('results-meta');
+    // ── Search / filter ───────────────────────────────────────────────────────
+    function onSearch() {
+      searchQuery = document.getElementById('search-input').value;
+      if (allEmails.length) applyFilters();
+    }
 
-      fetchBtn.disabled = true;
+    function applyFilters() {
+      const q = searchQuery.toLowerCase().trim();
+      const filtered = q
+        ? allEmails.filter(e =>
+            e.domain.toLowerCase().includes(q) ||
+            e.subject.toLowerCase().includes(q) ||
+            e.senderEmail.toLowerCase().includes(q))
+        : allEmails;
+
+      const meta = document.getElementById('results-meta');
+      const wrap = document.getElementById('table-wrap');
+      const empty = document.getElementById('empty-state');
+
+      if (!filtered.length) {
+        wrap.style.display = 'none';
+        empty.style.display = 'block';
+        empty.querySelector('p').textContent = q
+          ? 'No emails match your filter.'
+          : 'No emails with unsubscribe links for this time period.';
+        meta.textContent = q ? `No results for "${q}"` : '';
+        document.getElementById('export-btn').style.display = 'none';
+      } else {
+        empty.style.display = 'none';
+        wrap.style.display = 'block';
+        document.getElementById('export-btn').style.display = '';
+        const domainCount = new Set(filtered.map(e => e.domain)).size;
+        meta.textContent = isGrouped
+          ? `${domainCount} domain${domainCount !== 1 ? 's' : ''}, ${filtered.length} email${filtered.length !== 1 ? 's' : ''}`
+          : `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
+        renderTable(filtered);
+      }
+    }
+
+    // ── Export CSV ────────────────────────────────────────────────────────────
+    function exportCsv() {
+      const q = searchQuery.toLowerCase().trim();
+      const data = q
+        ? allEmails.filter(e =>
+            e.domain.toLowerCase().includes(q) ||
+            e.subject.toLowerCase().includes(q) ||
+            e.senderEmail.toLowerCase().includes(q))
+        : allEmails;
+
+      const rows = data.map(e =>
+        [e.domain, e.senderEmail, e.subject, e.date, e.unsubscribeUrl,
+          unsubscribedDomains.has(e.domain) ? 'Unsubscribed' : 'Active']
+          .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')
+      );
+      const csv = ['Domain,Sender Email,Subject,Date,Unsubscribe URL,Status', ...rows].join('\n');
+      const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })),
+        download: `unsubscribe-${currentRange}-${new Date().toISOString().slice(0, 10)}.csv`,
+      });
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // ── Bulk open ─────────────────────────────────────────────────────────────
+    function checkCell(domain, senderEmail, url) {
+      const d = esc(domain); const s = esc(senderEmail); const u = esc(url);
+      return `<td class="check-cell"><input type="checkbox" class="row-check" data-url="${u}" data-domain="${d}" data-sender="${s}" onchange="onCheckChange()"></td>`;
+    }
+
+    function onCheckChange() {
+      const checked = document.querySelectorAll('.row-check:checked');
+      const all = document.querySelectorAll('tbody .row-check');
+      const selectAll = document.getElementById('select-all');
+      selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+      selectAll.checked = all.length > 0 && checked.length === all.length;
+      document.getElementById('bulk-count').textContent = checked.length;
+      document.getElementById('bulk-btn').style.display = checked.length > 0 ? '' : 'none';
+    }
+
+    function toggleSelectAll(cb) {
+      document.querySelectorAll('tbody .row-check').forEach(c => c.checked = cb.checked);
+      onCheckChange();
+    }
+
+    function bulkOpen() {
+      const checks = [...document.querySelectorAll('.row-check:checked')];
+      checks.forEach(c => {
+        window.open(c.dataset.url, '_blank', 'noopener,noreferrer');
+        unsubscribedDomains.add(c.dataset.domain);
+        fetch('/api/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+          body: JSON.stringify({ domain: c.dataset.domain, senderEmail: c.dataset.sender, unsubscribeUrl: c.dataset.url }),
+        }).catch(err => console.warn('Failed to log unsubscribe:', err));
+      });
+      applyFilters(); // re-render (clears checkboxes, resets bulk btn)
+    }
+
+    function resetBulkState() {
+      const selectAll = document.getElementById('select-all');
+      if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
+      document.getElementById('bulk-btn').style.display = 'none';
+      document.getElementById('bulk-count').textContent = '0';
+    }
+
+    // ── Sorting ───────────────────────────────────────────────────────────────
+    function setSortCol(col) {
+      if (sortCol === col) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortCol = col;
+        sortDir = col === 'date' ? 'desc' : 'asc';
+      }
+      applyFilters();
+    }
+
+    function updateSortHeaders() {
+      document.querySelectorAll('th[data-col]').forEach(th => {
+        const active = th.dataset.col === sortCol;
+        th.classList.toggle('sort-active', active);
+        th.querySelector('.sort-indicator').textContent =
+          active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅';
+      });
+    }
+
+    function sorted(emails) {
+      return [...emails].sort((a, b) => {
+        const va = sortCol === 'date' ? new Date(a.date).getTime() : (a[sortCol] || '').toLowerCase();
+        const vb = sortCol === 'date' ? new Date(b.date).getTime() : (b[sortCol] || '').toLowerCase();
+        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    // ── Grouping ──────────────────────────────────────────────────────────────
+    function toggleGrouped() {
+      isGrouped = !isGrouped;
+      expandedDomains.clear();
+      document.getElementById('group-btn').classList.toggle('active', isGrouped);
+      applyFilters();
+    }
+
+    function toggleDomain(domain) {
+      if (expandedDomains.has(domain)) {
+        expandedDomains.delete(domain);
+      } else {
+        expandedDomains.add(domain);
+      }
+      applyFilters();
+    }
+
+    // ── Rendering ─────────────────────────────────────────────────────────────
+    function unsubBtn(domain, senderEmail, url, done, oneClick) {
+      const d = esc(domain); const s = esc(senderEmail); const u = esc(url);
+      const checkIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+      if (done) {
+        return `<button class="unsub-btn done" onclick="handleUnsubscribe(event,'${d}','${s}','${u}')">${checkIcon} Unsubscribed</button>`;
+      }
+      if (oneClick) {
+        const zapIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+        return `<button class="unsub-btn one-click" onclick="handleOneClick(event,'${d}','${s}','${u}')">${zapIcon} 1-Click Unsubscribe</button>`;
+      }
+      const linkIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+      return `<button class="unsub-btn" onclick="handleUnsubscribe(event,'${d}','${s}','${u}')">${linkIcon} Unsubscribe</button>`;
+    }
+
+    async function handleUnsubscribe(e, domain, senderEmail, url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      unsubscribedDomains.add(domain);
+      applyFilters();
+      fetch('/api/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        body: JSON.stringify({ domain, senderEmail, unsubscribeUrl: url }),
+      }).catch(err => console.warn('Failed to log unsubscribe:', err));
+    }
+
+    async function handleOneClick(e, domain, senderEmail, url) {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="btn-spinner"></span> Unsubscribing…`;
+      try {
+        const res = await fetch('/api/one-click-unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+          body: JSON.stringify({ domain, senderEmail, unsubscribeUrl: url }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to unsubscribe');
+        unsubscribedDomains.add(domain);
+        applyFilters();
+      } catch (err) {
+        btn.disabled = false;
+        const zapIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+        btn.innerHTML = `${zapIcon} 1-Click Unsubscribe`;
+        console.error('One-click unsubscribe error:', err);
+        alert('Unsubscribe failed: ' + err.message);
+      }
+    }
+
+    function renderTable(emails) {
+      updateSortHeaders();
+      resetBulkState();
+      const tbody = document.getElementById('email-tbody');
+
+      if (!isGrouped) {
+        tbody.innerHTML = sorted(emails).map(e => `
+          <tr>
+            ${checkCell(e.domain, e.senderEmail, e.unsubscribeUrl)}
+            <td class="domain-cell">${esc(e.domain)}</td>
+            <td class="email-cell">${esc(e.senderEmail)}</td>
+            <td class="subject-cell" title="${esc(e.subject)}">${esc(e.subject)}</td>
+            <td class="date-cell">${esc(e.date)}</td>
+            <td>${unsubBtn(e.domain, e.senderEmail, e.unsubscribeUrl, unsubscribedDomains.has(e.domain), e.oneClick)}</td>
+          </tr>`).join('');
+        return;
+      }
+
+      const groupMap = new Map();
+      emails.forEach(e => {
+        if (!groupMap.has(e.domain)) groupMap.set(e.domain, []);
+        groupMap.get(e.domain).push(e);
+      });
+      groupMap.forEach(items => items.sort((a, b) => new Date(b.date) - new Date(a.date)));
+
+      let groups = [...groupMap.entries()].map(([domain, items]) => ({ domain, items, rep: items[0] }));
+      groups.sort((a, b) => {
+        let va, vb;
+        if (sortCol === 'domain')     { va = a.domain.toLowerCase();               vb = b.domain.toLowerCase(); }
+        else if (sortCol === 'date')  { va = new Date(a.rep.date).getTime();        vb = new Date(b.rep.date).getTime(); }
+        else                          { va = (a.rep[sortCol] || '').toLowerCase();  vb = (b.rep[sortCol] || '').toLowerCase(); }
+        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      tbody.innerHTML = groups.flatMap(({ domain, items, rep }) => {
+        const expanded = expandedDomains.has(domain);
+        const done = unsubscribedDomains.has(domain);
+        const chevron = `<svg class="expand-icon ${expanded ? 'open' : ''}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+        const countBadge = items.length > 1 ? `<span class="count-badge">${items.length}</span>` : '';
+        const unsubBadge = done ? `<span class="badge badge-active" style="margin-left:7px">✓ Unsubscribed</span>` : '';
+
+        const summary = `
+          <tr class="group-row" data-domain="${esc(domain)}">
+            ${checkCell(rep.domain, rep.senderEmail, rep.unsubscribeUrl)}
+            <td class="domain-cell"><div style="display:flex;align-items:center">${chevron}${esc(domain)}${countBadge}${unsubBadge}</div></td>
+            <td class="email-cell">${esc(rep.senderEmail)}</td>
+            <td class="subject-cell" title="${esc(rep.subject)}">${esc(rep.subject)}</td>
+            <td class="date-cell">${esc(rep.date)}</td>
+            <td>${unsubBtn(rep.domain, rep.senderEmail, rep.unsubscribeUrl, done, rep.oneClick)}</td>
+          </tr>`;
+
+        if (!expanded || items.length <= 1) return [summary];
+
+        return [summary, ...items.map(e => `
+          <tr class="sub-row">
+            ${checkCell(e.domain, e.senderEmail, e.unsubscribeUrl)}
+            <td></td>
+            <td class="email-cell">${esc(e.senderEmail)}</td>
+            <td class="subject-cell" title="${esc(e.subject)}">${esc(e.subject)}</td>
+            <td class="date-cell">${esc(e.date)}</td>
+            <td>${unsubBtn(e.domain, e.senderEmail, e.unsubscribeUrl, unsubscribedDomains.has(e.domain), e.oneClick)}</td>
+          </tr>`)];
+      }).join('');
+    }
+
+    document.getElementById('email-tbody').addEventListener('click', e => {
+      if (e.target.type === 'checkbox') return; // don't expand/collapse when clicking a checkbox
+      const row = e.target.closest('.group-row');
+      if (row) toggleDomain(row.dataset.domain);
+    });
+
+    // ── Fetch ─────────────────────────────────────────────────────────────────
+    async function fetchEmails() {
+      const btn = document.getElementById('fetch-btn');
+      const loading = document.getElementById('loading');
+      const wrap = document.getElementById('table-wrap');
+      const empty = document.getElementById('empty-state');
+      const err = document.getElementById('error-msg');
+
+      btn.disabled = true;
       loading.style.display = 'block';
-      tableWrap.style.display = 'none';
-      emptyState.style.display = 'none';
-      errorMsg.style.display = 'none';
-      meta.textContent = '';
+      wrap.style.display = 'none';
+      empty.style.display = 'none';
+      err.style.display = 'none';
+      document.getElementById('results-meta').textContent = '';
+      document.getElementById('export-btn').style.display = 'none';
+      expandedDomains.clear();
+      unsubscribedDomains.clear();
+      allEmails = [];
 
       try {
         const res = await fetch(`/api/emails?range=${currentRange}`);
@@ -266,31 +643,19 @@
         }
         loading.style.display = 'none';
         if (!data.emails?.length) {
-          emptyState.style.display = 'block';
+          empty.style.display = 'block';
         } else {
-          meta.textContent = `${data.total} email${data.total !== 1 ? 's' : ''} found`;
-          renderTable(data.emails);
-          tableWrap.style.display = 'block';
+          allEmails = data.emails;
+          unsubscribedDomains = new Set(data.emails.filter(e => e.alreadyUnsubscribed).map(e => e.domain));
+          applyFilters();
         }
-      } catch (err) {
+      } catch (e) {
         loading.style.display = 'none';
-        errorMsg.textContent = err.message;
-        errorMsg.style.display = 'block';
+        err.textContent = e.message;
+        err.style.display = 'block';
       } finally {
-        fetchBtn.disabled = false;
+        btn.disabled = false;
       }
-    }
-
-    function renderTable(emails) {
-      document.getElementById('email-tbody').innerHTML = emails.map(e => `
-        <tr>
-          <td class="domain-cell">${escHtml(e.domain)}</td>
-          <td class="email-cell">${escHtml(e.senderEmail)}</td>
-          <td class="subject-cell" title="${escHtml(e.subject)}">${escHtml(e.subject)}</td>
-          <td class="date-cell">${escHtml(e.date)}</td>
-          <td><a href="${escHtml(e.unsubscribeUrl)}" class="unsub-link" target="_blank" rel="noopener noreferrer">Unsubscribe</a></td>
-        </tr>
-      `).join('');
     }
 
     async function logout() {
@@ -298,12 +663,66 @@
       window.location.href = '/';
     }
 
-    function escHtml(str) {
-      return String(str)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    function esc(s) {
+      return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    async function acceptPolicy() {
+      const btn = document.getElementById('policy-accept-btn');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/accept-policy', {
+          method: 'POST',
+          headers: { 'X-CSRF-Token': csrfToken },
+        });
+        if (!res.ok) throw new Error('Failed to record acceptance');
+        document.getElementById('policy-overlay').classList.add('hidden');
+      } catch (e) {
+        btn.disabled = false;
+        alert('Something went wrong. Please try again.');
+      }
+    }
+
+    async function declinePolicy() {
+      await fetch('/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } });
+      window.location.href = '/';
+    }
+
+    async function init() {
+      const res = await fetch('/auth/status');
+      const data = await res.json();
+      if (!data.authenticated) return window.location.href = '/';
+      csrfToken = data.csrfToken;
+      renderUserInfo(data.user);
+      if (data.requiresPolicyAcceptance) {
+        document.getElementById('policy-overlay').classList.remove('hidden');
+      }
+      fetchEmails();
     }
 
     init();
   </script>
+
+  <!-- Privacy policy acceptance modal -->
+  <div id="policy-overlay" class="policy-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="policy-modal-title">
+    <div class="policy-modal">
+      <p class="policy-updated">Privacy Policy Updated</p>
+      <h2 id="policy-modal-title">We've updated our Privacy Policy</h2>
+      <p>
+        Our <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a> has been updated.
+        Please review it before continuing — it describes what data we collect, how it's used,
+        and your rights regarding that data.
+      </p>
+      <p>
+        To continue using the app, you must accept the updated policy.
+        If you decline, you will be signed out.
+      </p>
+      <div class="policy-modal-actions">
+        <button class="policy-decline-btn" onclick="declinePolicy()">Decline &amp; sign out</button>
+        <button class="policy-accept-btn" id="policy-accept-btn" onclick="acceptPolicy()">I accept</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

@@ -9,6 +9,11 @@ const isProd = process.env.NODE_ENV === 'production';
 const PORT = process.env.PORT || 3000;
 const SESSIONS_TABLE = process.env.SESSIONS_TABLE;
 const ALLOWLIST_TABLE = process.env.ALLOWLIST_TABLE;
+const HISTORY_TABLE = process.env.HISTORY_TABLE;
+
+// Bump this date string whenever the privacy policy changes materially.
+// Users who have not accepted this version will be prompted on next login.
+const PRIVACY_POLICY_VERSION = '2026-03-31';
 
 // Fail fast in production if required secrets are missing
 if (isProd && !process.env.SESSION_SECRET) {
@@ -19,7 +24,7 @@ if (isProd && !process.env.SESSION_SECRET) {
 // DynamoDB client (production only — skipped in local dev)
 // ---------------------------------------------------------------------------
 let ddb = null;
-if (SESSIONS_TABLE || ALLOWLIST_TABLE) {
+if (SESSIONS_TABLE || ALLOWLIST_TABLE || HISTORY_TABLE) {
   const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
   const { DynamoDBDocumentClient } = require('@aws-sdk/lib-dynamodb');
   ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -41,7 +46,16 @@ class DynamoDBStore extends session.Store {
       .then(({ Item }) => {
         if (!Item) return callback(null, null);
         if (Item.expiresAt < Math.floor(Date.now() / 1000)) return callback(null, null);
-        callback(null, JSON.parse(Item.data));
+        const sessionData = JSON.parse(Item.data);
+        if (Item.encryptedTokens && sessionData.user) {
+          try {
+            sessionData.user.googleTokens = decryptTokens(Item.encryptedTokens);
+          } catch {
+            // Decryption failed (e.g. after key rotation) — session survives but
+            // Gmail calls will return 401 and trigger re-authentication.
+          }
+        }
+        callback(null, sessionData);
       })
       .catch(callback);
   }
@@ -50,11 +64,22 @@ class DynamoDBStore extends session.Store {
     const { PutCommand } = require('@aws-sdk/lib-dynamodb');
     const maxAge = sessionData.cookie?.maxAge || 86400000;
     const expiresAt = Math.floor(Date.now() / 1000) + Math.floor(maxAge / 1000);
+
+    // Strip tokens from the session blob and store them encrypted in a separate field.
+    const dataToStore = { ...sessionData };
+    let encryptedTokens = null;
+    if (dataToStore.user?.googleTokens) {
+      encryptedTokens = encryptTokens(dataToStore.user.googleTokens);
+      dataToStore.user = { ...dataToStore.user };
+      delete dataToStore.user.googleTokens;
+    }
+
     this.ddb.send(new PutCommand({
       TableName: this.tableName,
       Item: {
         sessionId: sid,
-        data: JSON.stringify(sessionData),
+        data: JSON.stringify(dataToStore),
+        encryptedTokens,
         email: sessionData.user?.email || null,
         expiresAt,
         createdAt: sessionData._createdAt || Math.floor(Date.now() / 1000),
@@ -106,13 +131,40 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: sessionStore,
-  cookie: { secure: isProd, httpOnly: true, sameSite: 'strict', maxAge: 24 * 60 * 60 * 1000 },
+  cookie: { secure: isProd, httpOnly: true, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 },
 }));
+
+// ---------------------------------------------------------------------------
+// Token encryption (AES-256-GCM, key derived from SESSION_SECRET)
+// Google OAuth tokens are encrypted before being written to DynamoDB and
+// decrypted when the session is read back. Raw tokens never touch the database.
+// ---------------------------------------------------------------------------
+const crypto = require('crypto');
+
+const _tokenKey = crypto.scryptSync(
+  process.env.SESSION_SECRET || 'dev-secret-change-me',
+  'email-unsub-token-key',
+  32
+);
+
+function encryptTokens(tokens) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', _tokenKey, iv);
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify(tokens), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, encrypted]).toString('base64');
+}
+
+function decryptTokens(data) {
+  const buf = Buffer.from(data, 'base64');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', _tokenKey, buf.subarray(0, 12));
+  decipher.setAuthTag(buf.subarray(12, 28));
+  return JSON.parse(Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString('utf8'));
+}
 
 // ---------------------------------------------------------------------------
 // CSRF protection
 // ---------------------------------------------------------------------------
-const crypto = require('crypto');
 
 function getCsrfToken(req) {
   if (!req.session.csrfToken) {
@@ -196,6 +248,72 @@ async function getAllAllowlistEntries() {
   return Items.sort((a, b) => (a.addedAt || '').localeCompare(b.addedAt || ''));
 }
 
+// ---------------------------------------------------------------------------
+// Unsubscribe history helpers
+// ---------------------------------------------------------------------------
+const localHistory = new Map(); // local dev fallback: key = `${userEmail}#${domain}`
+
+async function logUnsubscribe(userEmail, domain, senderEmail, unsubscribeUrl) {
+  if (!ddb || !HISTORY_TABLE) {
+    const key = `${userEmail}#${domain}`;
+    const existing = localHistory.get(key) || { count: 0 };
+    localHistory.set(key, {
+      userEmail, domain, senderEmail, unsubscribeUrl,
+      unsubscribedAt: new Date().toISOString(),
+      count: existing.count + 1,
+    });
+    return;
+  }
+  const { UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+  await ddb.send(new UpdateCommand({
+    TableName: HISTORY_TABLE,
+    Key: { userEmail, domain },
+    UpdateExpression: 'SET senderEmail = :se, unsubscribeUrl = :url, unsubscribedAt = :at, #cnt = if_not_exists(#cnt, :zero) + :one',
+    ExpressionAttributeNames: { '#cnt': 'count' },
+    ExpressionAttributeValues: {
+      ':se': senderEmail,
+      ':url': unsubscribeUrl,
+      ':at': new Date().toISOString(),
+      ':zero': 0,
+      ':one': 1,
+    },
+  }));
+}
+
+async function getUnsubscribedDomains(userEmail) {
+  if (!ddb || !HISTORY_TABLE) {
+    const domains = new Set();
+    for (const [key, val] of localHistory) {
+      if (key.startsWith(`${userEmail}#`)) domains.add(val.domain);
+    }
+    return domains;
+  }
+  const { QueryCommand } = require('@aws-sdk/lib-dynamodb');
+  const { Items = [] } = await ddb.send(new QueryCommand({
+    TableName: HISTORY_TABLE,
+    KeyConditionExpression: 'userEmail = :email',
+    ExpressionAttributeValues: { ':email': userEmail },
+    ProjectionExpression: '#domain',
+    ExpressionAttributeNames: { '#domain': 'domain' },
+  }));
+  return new Set(Items.map(i => i.domain));
+}
+
+async function getAllHistory() {
+  if (!ddb || !HISTORY_TABLE) {
+    return [...localHistory.values()]
+      .sort((a, b) => (b.unsubscribedAt || '').localeCompare(a.unsubscribedAt || ''))
+      .map(({ userEmail, unsubscribedAt, count }) => ({ userEmail, unsubscribedAt, count }));
+  }
+  const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
+  const { Items = [] } = await ddb.send(new ScanCommand({
+    TableName: HISTORY_TABLE,
+    ProjectionExpression: 'userEmail, unsubscribedAt, #cnt',
+    ExpressionAttributeNames: { '#cnt': 'count' },
+  }));
+  return Items.sort((a, b) => (b.unsubscribedAt || '').localeCompare(a.unsubscribedAt || ''));
+}
+
 async function getActiveSessions() {
   if (!ddb || !SESSIONS_TABLE) return [];
   const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
@@ -228,8 +346,20 @@ app.get('/admin', requireAuth, requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
 
+app.get('/help', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'help.html'));
+});
+
 app.get('/access-denied', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'access-denied.html'));
+});
+
+app.get('/privacy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy.html'));
+});
+
+app.get('/terms', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'terms.html'));
 });
 
 // ---------------------------------------------------------------------------
@@ -292,13 +422,22 @@ app.get('/auth/callback', async (req, res) => {
       picture: picture || '',
       isAdmin: entry.isAdmin || false,
       googleTokens: tokens,
+      privacyAcceptedVersion: entry.privacyAcceptedVersion || null,
     };
 
     // Apply remember me
     const maxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
     req.session.cookie.maxAge = maxAge;
 
-    res.redirect('/app');
+    // Explicitly save session before redirecting — prevents a race condition
+    // where the redirect fires before the session write to the store completes
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err.message);
+        return res.redirect('/?error=auth_failed');
+      }
+      res.redirect('/app');
+    });
   } catch (err) {
     console.error('OAuth callback error:', err.message);
     res.redirect('/?error=auth_failed');
@@ -307,12 +446,26 @@ app.get('/auth/callback', async (req, res) => {
 
 app.get('/auth/status', (req, res) => {
   if (!req.session.user) return res.json({ authenticated: false });
-  const { email, firstName, lastName, picture, isAdmin } = req.session.user;
-  res.json({ authenticated: true, csrfToken: getCsrfToken(req), user: { email, firstName, lastName, picture, isAdmin } });
+  const { email, firstName, lastName, picture, isAdmin, privacyAcceptedVersion } = req.session.user;
+  const requiresPolicyAcceptance = privacyAcceptedVersion !== PRIVACY_POLICY_VERSION;
+  res.json({ authenticated: true, csrfToken: getCsrfToken(req), requiresPolicyAcceptance, user: { email, firstName, lastName, picture, isAdmin } });
 });
 
 app.post('/auth/logout', requireCsrf, (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
+});
+
+app.post('/api/accept-policy', requireAuth, requireCsrf, async (req, res) => {
+  try {
+    await upsertAllowlistEntry(req.session.user.email, {
+      privacyAcceptedVersion: PRIVACY_POLICY_VERSION,
+      privacyAcceptedAt: new Date().toISOString(),
+    });
+    req.session.user.privacyAcceptedVersion = PRIVACY_POLICY_VERSION;
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -363,7 +516,7 @@ app.get('/api/emails', requireAuth, async (req, res) => {
 
   try {
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-    const daysBack = range === 'week' ? 7 : 1;
+    const daysBack = range === 'month' ? 30 : range === 'week' ? 7 : 1;
     const afterDate = new Date();
     afterDate.setDate(afterDate.getDate() - daysBack);
     const afterTimestamp = Math.floor(afterDate.getTime() / 1000);
@@ -405,8 +558,11 @@ app.get('/api/emails', requireAuth, async (req, res) => {
       const key = `${senderEmail}|${unsubscribeUrl}`;
       if (emails.some(e => `${e.senderEmail}|${e.unsubscribeUrl}` === key)) continue;
 
+      const listUnsubPost = getHeader('List-Unsubscribe-Post');
+      const oneClick = !!listUnsubPost && unsubscribeUrl.startsWith('http');
+
       emails.push({
-        senderEmail, domain, subject, unsubscribeUrl,
+        senderEmail, domain, subject, unsubscribeUrl, oneClick,
         date: new Date(parseInt(msgData.data.internalDate)).toLocaleDateString('en-US', {
           month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
         }),
@@ -414,6 +570,10 @@ app.get('/api/emails', requireAuth, async (req, res) => {
     }
 
     emails.sort((a, b) => a.domain.localeCompare(b.domain));
+
+    const unsubscribedDomains = await getUnsubscribedDomains(req.session.user.email);
+    emails.forEach(e => { e.alreadyUnsubscribed = unsubscribedDomains.has(e.domain); });
+
     res.json({ emails, total: emails.length });
   } catch (err) {
     console.error('Gmail API error:', err.message);
@@ -422,6 +582,70 @@ app.get('/api/emails', requireAuth, async (req, res) => {
       return res.status(401).json({ error: 'Session expired, please log in again' });
     }
     res.status(500).json({ error: 'Failed to fetch emails: ' + err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Unsubscribe logging
+// ---------------------------------------------------------------------------
+app.post('/api/unsubscribe', requireAuth, requireCsrf, async (req, res) => {
+  const { domain, senderEmail, unsubscribeUrl } = req.body;
+  if (!domain || !unsubscribeUrl) {
+    return res.status(400).json({ error: 'domain and unsubscribeUrl are required' });
+  }
+  try {
+    await logUnsubscribe(req.session.user.email, domain, senderEmail || '', unsubscribeUrl);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Unsubscribe log error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// One-click unsubscribe (RFC 8058 — server-side POST proxy)
+// ---------------------------------------------------------------------------
+app.post('/api/one-click-unsubscribe', requireAuth, requireCsrf, async (req, res) => {
+  const { domain, senderEmail, unsubscribeUrl } = req.body;
+  if (!domain || !unsubscribeUrl) {
+    return res.status(400).json({ error: 'domain and unsubscribeUrl are required' });
+  }
+
+  let parsed;
+  try { parsed = new URL(unsubscribeUrl); } catch {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    return res.status(400).json({ error: 'Only HTTP(S) URLs are supported' });
+  }
+
+  try {
+    const postBody = 'List-Unsubscribe=One-Click';
+    await new Promise((resolve, reject) => {
+      const mod = parsed.protocol === 'https:' ? require('https') : require('http');
+      const reqOut = mod.request(unsubscribeUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(postBody),
+          'User-Agent': 'Mozilla/5.0 (compatible; EmailUnsubscribeManager/1.0)',
+        },
+      }, (r) => {
+        r.resume(); // drain response
+        if (r.statusCode >= 400) return reject(new Error(`Remote server returned ${r.statusCode}`));
+        resolve(r.statusCode);
+      });
+      reqOut.on('error', reject);
+      reqOut.setTimeout(10000, () => { reqOut.destroy(new Error('Request timed out')); });
+      reqOut.write(postBody);
+      reqOut.end();
+    });
+
+    await logUnsubscribe(req.session.user.email, domain, senderEmail || '', unsubscribeUrl);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('One-click unsubscribe error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -480,6 +704,14 @@ app.delete('/api/admin/users/:email', requireAuth, requireAdmin, requireCsrf, as
   }
 });
 
+app.get('/api/admin/history', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    res.json({ history: await getAllHistory() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/admin/sessions', requireAuth, requireAdmin, async (req, res) => {
   try {
     res.json({ sessions: await getActiveSessions() });
@@ -506,6 +738,9 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 // Lambda / local dev
 // ---------------------------------------------------------------------------
 module.exports.handler = serverless(app);
+module.exports.app = app;
+module.exports.parseListUnsubscribe = parseListUnsubscribe;
+module.exports.findUnsubscribeInBody = findUnsubscribeInBody;
 
 if (require.main === module) {
   app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));

@@ -1,0 +1,17 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="48" height="48" rx="11" fill="url(#g)"/>
+  <!-- Envelope body -->
+  <rect x="8" y="15" width="28" height="19" rx="2.5" stroke="white" stroke-width="2" stroke-opacity="0.9"/>
+  <!-- Envelope flap (open V) -->
+  <path d="M8 18L22 27L36 18" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-opacity="0.9"/>
+  <!-- Exit arrow escaping top-right (represents unsubscribing / leaving) -->
+  <path d="M30 22L39 13" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <path d="M34.5 13H39V17.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

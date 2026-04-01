@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service — Email Unsubscribe Manager</title>
+  <link rel="stylesheet" href="/app.css">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <script>
+    (function() {
+      const t = localStorage.getItem('theme');
+      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('dark');
+    })();
+  </script>
+  <style>
+    body { background: var(--bg); }
+
+    .page-header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 24px; height: 58px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: blur(8px);
+    }
+    .page-header .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 15px; font-weight: 600; color: var(--text-1);
+      text-decoration: none;
+    }
+
+    main {
+      max-width: 720px; margin: 40px auto; padding: 0 24px 80px;
+    }
+
+    .page-title {
+      font-size: 26px; font-weight: 700; color: var(--text-1);
+      letter-spacing: -.02em; margin-bottom: 6px;
+    }
+    .effective-date {
+      font-size: 13px; color: var(--text-3); margin-bottom: 36px;
+    }
+
+    .policy-section { margin-bottom: 32px; }
+    .policy-section h2 {
+      font-size: 15px; font-weight: 700; color: var(--text-1);
+      margin-bottom: 10px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .policy-section p {
+      font-size: 14px; color: var(--text-2); line-height: 1.7;
+      margin-bottom: 10px;
+    }
+    .policy-section p:last-child { margin-bottom: 0; }
+    .policy-section ul {
+      list-style: none; display: flex; flex-direction: column; gap: 8px;
+      margin-bottom: 10px;
+    }
+    .policy-section ul li {
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 14px; color: var(--text-2); line-height: 1.6;
+    }
+    .policy-section ul li::before {
+      content: ''; display: block; width: 5px; height: 5px;
+      border-radius: 50%; background: var(--accent);
+      flex-shrink: 0; margin-top: 8px;
+    }
+    .policy-section a { color: var(--accent); text-decoration: none; }
+    .policy-section a:hover { text-decoration: underline; }
+
+    .highlight-box {
+      background: var(--accent-muted); border: 1px solid rgba(99,102,241,.25);
+      border-radius: var(--radius-xs); padding: 14px 18px;
+      font-size: 13.5px; color: var(--text-2); line-height: 1.65;
+      margin-bottom: 10px;
+    }
+    .highlight-box strong { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <header class="page-header">
+    <a href="/" class="brand">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" fill="none">
+        <defs>
+          <linearGradient id="tg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+        <rect width="48" height="48" rx="11" fill="url(#tg)"/>
+        <rect x="8" y="15" width="28" height="19" rx="2.5" stroke="white" stroke-width="2" stroke-opacity="0.9"/>
+        <path d="M8 18L22 27L36 18" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-opacity="0.9"/>
+        <path d="M30 22L39 13" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <path d="M34.5 13H39V17.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Email Unsubscribe Manager
+    </a>
+    <button class="theme-toggle" onclick="toggleDark()" title="Toggle dark mode">
+      <svg class="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun"  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <h1 class="page-title">Terms of Service</h1>
+    <p class="effective-date">Effective date: March 27, 2026 &nbsp;·&nbsp; Last updated: March 27, 2026</p>
+
+    <div class="policy-section">
+      <div class="highlight-box">
+        <strong>Summary:</strong> This is a private, invite-only tool for managing email subscriptions via Gmail. By using it, you agree to use it only for its intended purpose and to keep your account credentials secure. Access can be revoked at any time by an administrator.
+      </div>
+    </div>
+
+    <!-- 1. Acceptance -->
+    <div class="policy-section">
+      <h2>1. Acceptance of Terms</h2>
+      <p>By accessing or using Email Unsubscribe Manager ("the app", "the service") at <a href="https://unsub.dorangroup.io">unsub.dorangroup.io</a>, you agree to be bound by these Terms of Service. If you do not agree, you may not use the app.</p>
+      <p>These terms apply to all users of the app, including invited users and administrators.</p>
+    </div>
+
+    <!-- 2. Description -->
+    <div class="policy-section">
+      <h2>2. Description of the Service</h2>
+      <p>Email Unsubscribe Manager is a private productivity tool that connects to your Google Gmail account with read-only access to help you identify and act on unsubscribe links in marketing emails. The app is operated privately and is not open to the general public.</p>
+    </div>
+
+    <!-- 3. Access and eligibility -->
+    <div class="policy-section">
+      <h2>3. Access and Eligibility</h2>
+      <p>Access to the app is by invitation only. To use the service you must:</p>
+      <ul>
+        <li>Have a valid Google (Gmail) account</li>
+        <li>Be added to the app's allowlist by an administrator</li>
+        <li>Be 13 years of age or older</li>
+      </ul>
+      <p>Administrators reserve the right to grant, suspend, or revoke access at any time and for any reason without notice.</p>
+    </div>
+
+    <!-- 4. Google account and OAuth -->
+    <div class="policy-section">
+      <h2>4. Google Account and OAuth Access</h2>
+      <p>To use the app, you must sign in with your Google account and grant the app read-only access to your Gmail. By doing so, you authorise the app to:</p>
+      <ul>
+        <li>Read your Gmail messages and metadata to identify emails containing unsubscribe links</li>
+        <li>Access your Google profile information (name, email address, profile picture) for authentication and display purposes</li>
+      </ul>
+      <p>You can revoke this access at any time via <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a>. The app will never send, delete, or modify your emails.</p>
+    </div>
+
+    <!-- 5. Acceptable use -->
+    <div class="policy-section">
+      <h2>5. Acceptable Use</h2>
+      <p>You agree to use the app only for its intended purpose of managing email subscriptions. You must not:</p>
+      <ul>
+        <li>Attempt to gain unauthorised access to other users' data or the app's infrastructure</li>
+        <li>Use the app in any way that violates applicable laws or regulations</li>
+        <li>Share your account credentials or session with others</li>
+        <li>Attempt to reverse-engineer, scrape, or otherwise extract data from the app beyond normal use</li>
+        <li>Use the app in a manner that could damage, overload, or impair the service</li>
+      </ul>
+    </div>
+
+    <!-- 6. Privacy -->
+    <div class="policy-section">
+      <h2>6. Privacy</h2>
+      <p>Your use of the app is also governed by our <a href="/privacy">Privacy Policy</a>, which describes how we collect, use, and protect your data. By using the app, you consent to the data practices described in the Privacy Policy.</p>
+      <p>Our use of data obtained from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+    </div>
+
+    <!-- 7. Intellectual property -->
+    <div class="policy-section">
+      <h2>7. Intellectual Property</h2>
+      <p>The app, including its code, design, and content, is the property of the operator. You are granted a limited, non-exclusive, non-transferable licence to use the app for its intended purpose. You may not copy, modify, distribute, or create derivative works from the app without explicit permission.</p>
+    </div>
+
+    <!-- 8. Disclaimers -->
+    <div class="policy-section">
+      <h2>8. Disclaimers</h2>
+      <p>The app is provided <strong>"as is"</strong> and <strong>"as available"</strong> without warranties of any kind, express or implied. We do not guarantee that:</p>
+      <ul>
+        <li>The service will be uninterrupted, error-free, or available at all times</li>
+        <li>All emails containing unsubscribe links will be detected</li>
+        <li>Unsubscribe actions will be honoured by the sending party</li>
+      </ul>
+      <p>Use of the app is at your own risk.</p>
+    </div>
+
+    <!-- 9. Limitation of liability -->
+    <div class="policy-section">
+      <h2>9. Limitation of Liability</h2>
+      <p>To the fullest extent permitted by law, the operator shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of or inability to use the app, including but not limited to loss of data, loss of privacy, or unauthorised access to your account.</p>
+    </div>
+
+    <!-- 10. Termination -->
+    <div class="policy-section">
+      <h2>10. Termination</h2>
+      <p>Access to the app may be terminated or suspended at any time by an administrator. Upon termination, your session will be invalidated and your account entry may be removed from the allowlist. Sections of these terms that by their nature should survive termination (including disclaimers and limitation of liability) will continue to apply.</p>
+    </div>
+
+    <!-- 11. Changes -->
+    <div class="policy-section">
+      <h2>11. Changes to These Terms</h2>
+      <p>These terms may be updated from time to time. The effective date at the top of this page will reflect the most recent revision. Continued use of the app after changes are posted constitutes acceptance of the updated terms.</p>
+    </div>
+
+    <!-- 12. Governing law -->
+    <div class="policy-section">
+      <h2>12. Governing Law</h2>
+      <p>These terms are governed by the laws of the State of Washington, United States, without regard to its conflict of law provisions.</p>
+    </div>
+
+    <!-- 13. Contact -->
+    <div class="policy-section">
+      <h2>13. Contact</h2>
+      <p>If you have questions about these terms, contact the app administrator at <a id="contact-link" href="#"></a>.</p>
+    </div>
+  </main>
+
+  <script>
+    function toggleDark() {
+      const dark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    }
+    (function() {
+      const u = 'admin', d = ['dorangroup', 'io'].join('.');
+      const addr = u + '@' + d;
+      const el = document.getElementById('contact-link');
+      el.href = 'mailto:' + addr;
+      el.textContent = addr;
+    })();
+  </script>
+</body>
+</html>

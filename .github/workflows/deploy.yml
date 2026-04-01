@@ -1,0 +1,160 @@
+name: Deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  id-token: write   # required for OIDC token exchange
+  contents: read
+  issues: write     # required for ZAP to open issues on findings
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Pre-deploy security gates — block the deploy if any fail
+  # ---------------------------------------------------------------------------
+  security-gates:
+    name: Security Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history required for gitleaks
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit
+        run: npm audit --audit-level=high
+
+      - name: Gitleaks — scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Semgrep — static analysis
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: p/express
+
+      - name: Snyk — dependency and code scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  # ---------------------------------------------------------------------------
+  # Test suite
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+  # ---------------------------------------------------------------------------
+  # Deploy to production — only runs if all gates pass
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [security-gates, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install CDK dependencies
+        working-directory: cdk
+        run: npm ci
+
+      - name: Deploy
+        working-directory: cdk
+        run: npx cdk deploy --require-approval never --context env=prod
+
+      - name: Invalidate CloudFront cache
+        run: |
+          DIST_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Aliases.Items[?contains(@,'unsub.dorangroup.io')]].Id" \
+            --output text)
+          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+
+      - name: Post-deploy health check
+        run: |
+          sleep 5
+          curl -sf https://unsub.dorangroup.io/health | grep '"status":"ok"'
+
+  # ---------------------------------------------------------------------------
+  # Post-deploy security scans — run against live app after every deploy
+  # Findings are reported but do not fail the pipeline (alert, don't block)
+  # ---------------------------------------------------------------------------
+  post-deploy-scan:
+    name: Post-Deploy Security Scan
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    steps:
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'https://unsub.dorangroup.io'
+          # Passive scan only — no active attacks. Findings create GitHub issues.
+          fail_action: false
+
+      - name: testssl.sh — TLS configuration check
+        run: |
+          docker run --rm drwetter/testssl.sh \
+            --severity HIGH \
+            --quiet \
+            --color 0 \
+            https://unsub.dorangroup.io
+        continue-on-error: true
+
+      - name: Mozilla Observatory — security headers check
+        run: |
+          # Trigger a fresh scan
+          curl -s -X POST \
+            "https://http-observatory.security.mozilla.org/api/v1/analyze?host=unsub.dorangroup.io&rescan=true" \
+            > /dev/null
+          # Wait for scan to complete
+          sleep 15
+          # Fetch and print results
+          RESULT=$(curl -s \
+            "https://http-observatory.security.mozilla.org/api/v1/analyze?host=unsub.dorangroup.io")
+          echo "Grade: $(echo $RESULT | jq -r '.grade')"
+          echo "Score: $(echo $RESULT | jq -r '.score')"
+          # Fail if grade is D or F
+          GRADE=$(echo $RESULT | jq -r '.grade')
+          if [[ "$GRADE" == D* ]] || [[ "$GRADE" == F* ]]; then
+            echo "Observatory grade $GRADE is below acceptable threshold"
+            exit 1
+          fi

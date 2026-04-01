@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Email Unsubscribe Manager</title>
+  <link rel="stylesheet" href="/app.css">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <script>
+    (function() {
+      const t = localStorage.getItem('theme');
+      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('dark');
+    })();
+  </script>
+  <style>
+    body { background: var(--bg); }
+
+    .page-header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 24px; height: 58px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: blur(8px);
+    }
+    .page-header .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 15px; font-weight: 600; color: var(--text-1);
+      text-decoration: none;
+    }
+    .page-header .brand svg { flex-shrink: 0; }
+
+    main {
+      max-width: 720px; margin: 40px auto; padding: 0 24px 80px;
+    }
+
+    .page-title {
+      font-size: 26px; font-weight: 700; color: var(--text-1);
+      letter-spacing: -.02em; margin-bottom: 6px;
+    }
+    .effective-date {
+      font-size: 13px; color: var(--text-3); margin-bottom: 36px;
+    }
+
+    .policy-section {
+      margin-bottom: 32px;
+    }
+    .policy-section h2 {
+      font-size: 15px; font-weight: 700; color: var(--text-1);
+      margin-bottom: 10px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .policy-section p {
+      font-size: 14px; color: var(--text-2); line-height: 1.7;
+      margin-bottom: 10px;
+    }
+    .policy-section p:last-child { margin-bottom: 0; }
+    .policy-section ul {
+      list-style: none; display: flex; flex-direction: column; gap: 8px;
+      margin-bottom: 10px;
+    }
+    .policy-section ul li {
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 14px; color: var(--text-2); line-height: 1.6;
+    }
+    .policy-section ul li::before {
+      content: ''; display: block; width: 5px; height: 5px;
+      border-radius: 50%; background: var(--accent);
+      flex-shrink: 0; margin-top: 8px;
+    }
+    .policy-section a {
+      color: var(--accent); text-decoration: none;
+    }
+    .policy-section a:hover { text-decoration: underline; }
+
+    .highlight-box {
+      background: var(--accent-muted); border: 1px solid rgba(99,102,241,.25);
+      border-radius: var(--radius-xs); padding: 14px 18px;
+      font-size: 13.5px; color: var(--text-2); line-height: 1.65;
+      margin-bottom: 10px;
+    }
+    .highlight-box strong { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <header class="page-header">
+    <a href="/" class="brand">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" fill="none">
+        <defs>
+          <linearGradient id="pg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+        <rect width="48" height="48" rx="11" fill="url(#pg)"/>
+        <rect x="8" y="15" width="28" height="19" rx="2.5" stroke="white" stroke-width="2" stroke-opacity="0.9"/>
+        <path d="M8 18L22 27L36 18" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-opacity="0.9"/>
+        <path d="M30 22L39 13" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <path d="M34.5 13H39V17.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Email Unsubscribe Manager
+    </a>
+    <button class="theme-toggle" onclick="toggleDark()" title="Toggle dark mode">
+      <svg class="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun"  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <h1 class="page-title">Privacy Policy</h1>
+    <p class="effective-date">Effective date: March 27, 2026 &nbsp;·&nbsp; Last updated: March 31, 2026</p>
+
+    <div class="policy-section">
+      <div class="highlight-box">
+        <strong>Summary:</strong> This app connects to your Gmail account with read-only access to help you find and act on unsubscribe links. We do not read, store, or share your email content. The only data we retain is a log of domains you have unsubscribed from.
+      </div>
+    </div>
+
+    <!-- 1. What this app does -->
+    <div class="policy-section">
+      <h2>1. What This App Does</h2>
+      <p>Email Unsubscribe Manager ("the app") is a personal productivity tool that connects to your Google Gmail account to scan for emails containing unsubscribe links. It displays those emails in a single interface so you can unsubscribe from mailing lists quickly and track what you have already unsubscribed from.</p>
+      <p>The app is operated privately and access is restricted to explicitly invited users.</p>
+    </div>
+
+    <!-- 2. Google account access -->
+    <div class="policy-section">
+      <h2>2. Google Account Access</h2>
+      <p>When you sign in, the app requests the following Google OAuth scopes:</p>
+      <ul>
+        <li><strong>gmail.readonly</strong> — read access to your Gmail messages and metadata. This is used solely to search for emails that contain unsubscribe links.</li>
+        <li><strong>userinfo.email / userinfo.profile</strong> — your email address, name, and profile picture. These are used to identify your account and display your name in the app.</li>
+      </ul>
+      <p>The app <strong>cannot and does not</strong> send, delete, modify, or forward any of your emails. Access is strictly read-only.</p>
+    </div>
+
+    <!-- 3. Data we collect -->
+    <div class="policy-section">
+      <h2>3. Data We Collect and Store</h2>
+      <p>We store the minimum data necessary to operate the app:</p>
+      <ul>
+        <li><strong>Your email address, name, and profile picture</strong> — stored in the user allowlist to authenticate you and display your profile in the app.</li>
+        <li><strong>Session data</strong> — an encrypted session token stored in our database to keep you signed in. Sessions expire automatically after 24 hours (or 30 days if you choose "Remember me").</li>
+        <li><strong>Unsubscribe history</strong> — when you click an unsubscribe button, we log the sender domain, sender email address, unsubscribe URL, and the date and time of the action. This is used to mark previously unsubscribed senders in future scans.</li>
+      </ul>
+      <p><strong>We do not store email content, subject lines, message bodies, or any other data from your Gmail account.</strong> Email data is fetched in real time when you request it and is never written to persistent storage.</p>
+    </div>
+
+    <!-- 4. Cookies and local storage -->
+    <div class="policy-section">
+      <h2>4. Cookies and Local Storage</h2>
+      <p>The app uses one cookie and one browser storage key:</p>
+      <ul>
+        <li><strong>Session cookie (<code>connect.sid</code>)</strong> — a strictly necessary cookie set when you sign in. It keeps you authenticated between page loads and expires automatically after 24 hours (or 30 days if you choose "Keep me signed in"). Without this cookie the app cannot function. No consent is required for strictly necessary cookies under applicable privacy law.</li>
+        <li><strong>Theme preference (<code>theme</code> in localStorage)</strong> — stores your chosen light or dark mode. This value is never transmitted to the server. You can clear it at any time via your browser's site data settings.</li>
+      </ul>
+      <p>The app sets no analytics, advertising, or third-party tracking cookies.</p>
+    </div>
+
+    <!-- 5. How we use your data -->
+    <div class="policy-section">
+      <h2>5. How We Use Your Data</h2>
+      <p>Data collected is used exclusively to provide the app's functionality:</p>
+      <ul>
+        <li>To authenticate you and manage your session</li>
+        <li>To display your name and profile picture within the app</li>
+        <li>To track which senders you have previously unsubscribed from and surface that information in future scans</li>
+        <li>To provide admins with an audit log of unsubscribe activity across the app's users</li>
+      </ul>
+      <p>We do not use your data for advertising, analytics, profiling, or any purpose beyond operating the app.</p>
+    </div>
+
+    <!-- 6. Data sharing -->
+    <div class="policy-section">
+      <h2>6. Data Sharing and Third Parties</h2>
+      <p>We do not sell, rent, or share your personal data with third parties.</p>
+      <p>The app uses the following infrastructure to operate:</p>
+      <ul>
+        <li><strong>Amazon Web Services (AWS)</strong> — the app runs on AWS Lambda and stores data in AWS DynamoDB, both located in the <code>us-east-1</code> region. AWS is bound by its own <a href="https://aws.amazon.com/privacy/" target="_blank" rel="noopener">Privacy Policy</a>.</li>
+        <li><strong>Google APIs</strong> — Gmail and Google Sign-In are provided by Google LLC. Use of Google APIs is subject to <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>.</li>
+      </ul>
+      <p>The app's use of data obtained from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+    </div>
+
+    <!-- 7. Data retention -->
+    <div class="policy-section">
+      <h2>7. Data Retention</h2>
+      <ul>
+        <li><strong>Sessions</strong> are automatically deleted from our database when they expire (24 hours or 30 days depending on your preference).</li>
+        <li><strong>Unsubscribe history</strong> is retained indefinitely to power the "already unsubscribed" indicator. You may request deletion at any time by contacting the app administrator.</li>
+        <li><strong>Your account</strong> (email address, name, picture) remains in the allowlist until an administrator removes it.</li>
+      </ul>
+    </div>
+
+    <!-- 8. Security -->
+    <div class="policy-section">
+      <h2>8. Security</h2>
+      <p>We take reasonable steps to protect the data we store:</p>
+      <ul>
+        <li>All traffic is encrypted in transit via HTTPS (TLS 1.2+) enforced by AWS CloudFront.</li>
+        <li>Sessions are stored in AWS DynamoDB with automatic TTL-based expiry. DynamoDB provides encryption at rest using AWS-managed AES-256 keys, protecting data against physical media access.</li>
+        <li>Access to the app is restricted to allowlisted users only — there is no open registration.</li>
+        <li>Google OAuth tokens (access and refresh tokens) are encrypted using AES-256-GCM before being stored in the session. The encryption key is derived from the application's session secret. Raw tokens are never written to the database in plaintext.</li>
+      </ul>
+    </div>
+
+    <!-- 9. Your rights -->
+    <div class="policy-section">
+      <h2>9. Your Rights and Choices</h2>
+      <ul>
+        <li><strong>Revoke access</strong> — you can revoke this app's access to your Google account at any time via <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a>. This will sign you out of the app immediately.</li>
+        <li><strong>Sign out</strong> — clicking "Sign out" in the app deletes your session immediately.</li>
+        <li><strong>Data deletion</strong> — to request deletion of your stored data (unsubscribe history, account entry), contact the app administrator.</li>
+      </ul>
+    </div>
+
+    <!-- 10. Children -->
+    <div class="policy-section">
+      <h2>10. Children's Privacy</h2>
+      <p>This app is not intended for use by anyone under the age of 13. We do not knowingly collect personal information from children.</p>
+    </div>
+
+    <!-- 11. Changes -->
+    <div class="policy-section">
+      <h2>11. Changes to This Policy</h2>
+      <p>If this policy changes materially, we will update the effective date at the top of this page. Continued use of the app after changes are posted constitutes acceptance of the updated policy.</p>
+    </div>
+
+    <!-- 12. Contact -->
+    <div class="policy-section">
+      <h2>12. Contact</h2>
+      <p>If you have questions about this privacy policy or how your data is handled, contact the app administrator at <a id="contact-link" href="#"></a>.</p>
+    </div>
+  </main>
+
+  <script>
+    function toggleDark() {
+      const dark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    }
+    (function() {
+      const u = 'admin', d = ['dorangroup', 'io'].join('.');
+      const addr = u + '@' + d;
+      const el = document.getElementById('contact-link');
+      el.href = 'mailto:' + addr;
+      el.textContent = addr;
+    })();
+  </script>
+</body>
+</html>
