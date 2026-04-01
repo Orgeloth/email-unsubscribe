@@ -40,8 +40,10 @@ exports.handler = async (event) => {
       full += '\r\n' + lines[i];
     }
     const key = full.split(':')[0].toLowerCase().trim();
-    // Drop DKIM signatures — they break after From is rewritten
-    if (key !== 'dkim-signature' && key !== 'x-google-dkim-signature') {
+    // Drop DKIM signatures (invalid after rewrite) and envelope headers that
+    // contain the original sender address — SES validates these in production.
+    const drop = new Set(['dkim-signature', 'x-google-dkim-signature', 'return-path', 'sender']);
+    if (!drop.has(key)) {
       if (key === 'from') {
         outHeaders.push(`From: ${from}`);
         outHeaders.push(`Reply-To: ${originalFrom}`);
