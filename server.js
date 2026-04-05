@@ -47,7 +47,9 @@ class DynamoDBStore extends session.Store {
       .then(({ Item }) => {
         if (!Item) return callback(null, null);
         if (Item.expiresAt < Math.floor(Date.now() / 1000)) return callback(null, null);
-        const sessionData = JSON.parse(Item.data);
+        if (!Item.data) return callback(null, null);
+        let sessionData;
+        try { sessionData = JSON.parse(Item.data); } catch { return callback(null, null); }
         if (Item.encryptedTokens && sessionData.user) {
           try {
             sessionData.user.googleTokens = decryptTokens(Item.encryptedTokens);
