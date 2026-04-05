@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 const SESSIONS_TABLE = process.env.SESSIONS_TABLE;
 const ALLOWLIST_TABLE = process.env.ALLOWLIST_TABLE;
 const HISTORY_TABLE = process.env.HISTORY_TABLE;
+const ANALYTICS_TABLE = process.env.ANALYTICS_TABLE;
 
 // Bump this date string whenever the privacy policy changes materially.
 // Users who have not accepted this version will be prompted on next login.
@@ -332,6 +333,39 @@ async function getActiveSessions() {
 }
 
 // ---------------------------------------------------------------------------
+// Analytics helpers
+// ---------------------------------------------------------------------------
+async function getStoredAnalytics(userEmail, dates) {
+  if (!ddb || !ANALYTICS_TABLE || !dates.length) return {};
+  const { BatchGetCommand } = require('@aws-sdk/lib-dynamodb');
+  const keys = dates.map(date => ({ userEmail, date }));
+  const { Responses } = await ddb.send(new BatchGetCommand({
+    RequestItems: { [ANALYTICS_TABLE]: { Keys: keys } },
+  }));
+  const items = Responses?.[ANALYTICS_TABLE] || [];
+  return Object.fromEntries(items.map(i => [i.date, i.count]));
+}
+
+async function storeAnalyticsCounts(userEmail, dateCounts) {
+  if (!ddb || !ANALYTICS_TABLE) return;
+  const { BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
+  const expiresAt = Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60;
+  const entries = Object.entries(dateCounts);
+  for (let i = 0; i < entries.length; i += 25) {
+    const chunk = entries.slice(i, i + 25);
+    await ddb.send(new BatchWriteCommand({
+      RequestItems: {
+        [ANALYTICS_TABLE]: chunk.map(([date, count]) => ({
+          PutRequest: {
+            Item: { userEmail, date, count, fetchedAt: new Date().toISOString(), expiresAt },
+          },
+        })),
+      },
+    }));
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Page routes
 // ---------------------------------------------------------------------------
 app.get('/', (req, res) => {
@@ -583,6 +617,103 @@ app.get('/api/emails', requireAuth, async (req, res) => {
       return res.status(401).json({ error: 'Session expired, please log in again' });
     }
     res.status(500).json({ error: 'Failed to fetch emails: ' + err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Analytics
+// ---------------------------------------------------------------------------
+app.get('/api/analytics', requireAuth, async (req, res) => {
+  const { period = 'week' } = req.query;
+  if (!['week', 'month'].includes(period)) {
+    return res.status(400).json({ error: 'period must be week or month' });
+  }
+
+  const days = period === 'week' ? 7 : 30;
+  const userEmail = req.session.user.email;
+
+  // Build date label arrays (YYYY-MM-DD) for current and previous periods
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  const toDateStr = d => d.toISOString().slice(0, 10);
+
+  const labels = [], prevLabels = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(todayMidnight); d.setDate(d.getDate() - i);
+    labels.push(toDateStr(d));
+  }
+  for (let i = days * 2 - 1; i >= days; i--) {
+    const d = new Date(todayMidnight); d.setDate(d.getDate() - i);
+    prevLabels.push(toDateStr(d));
+  }
+
+  const todayStr = labels[labels.length - 1];
+  const allDates = [...prevLabels, ...labels];
+
+  try {
+    // Read whatever is already stored
+    const stored = await getStoredAnalytics(userEmail, allDates);
+
+    // Determine which dates need a Gmail fetch: today always re-fetches, others only if missing
+    const toFetch = allDates.filter(d => d === todayStr || !(d in stored));
+
+    let capped = false;
+    if (toFetch.length > 0) {
+      const oauth2Client = createOAuthClient();
+      oauth2Client.setCredentials(req.session.user.googleTokens);
+      oauth2Client.on('tokens', tokens => {
+        req.session.user.googleTokens = { ...req.session.user.googleTokens, ...tokens };
+      });
+      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+      // Single Gmail call covering from the oldest date to be fetched through today
+      const oldestDate = toFetch[0]; // already sorted oldest-first
+      const afterTimestamp = Math.floor(new Date(oldestDate).getTime() / 1000);
+
+      const listResponse = await gmail.users.messages.list({
+        userId: 'me',
+        q: `has:list-unsubscribe after:${afterTimestamp}`,
+        maxResults: 500,
+      });
+
+      capped = !!(listResponse.data.nextPageToken);
+      const messages = listResponse.data.messages || [];
+
+      // Initialise all fetched dates at zero so days with no emails still get stored
+      const dateCounts = Object.fromEntries(toFetch.map(d => [d, 0]));
+
+      if (messages.length > 0) {
+        for (let i = 0; i < messages.length; i += 20) {
+          const batch = messages.slice(i, i + 20);
+          const details = await Promise.all(
+            batch.map(msg =>
+              gmail.users.messages.get({ userId: 'me', id: msg.id, format: 'MINIMAL' }).catch(() => null)
+            )
+          );
+          for (const d of details) {
+            if (!d) continue;
+            const dateStr = toDateStr(new Date(parseInt(d.data.internalDate)));
+            if (dateStr in dateCounts) dateCounts[dateStr]++;
+          }
+        }
+      }
+
+      await storeAnalyticsCounts(userEmail, dateCounts);
+      Object.assign(stored, dateCounts);
+    }
+
+    const counts = labels.map(d => stored[d] || 0);
+    const total = counts.reduce((a, b) => a + b, 0);
+    const previousTotal = prevLabels.reduce((sum, d) => sum + (stored[d] || 0), 0);
+
+    res.json({ labels, counts, total, previousTotal, capped });
+  } catch (err) {
+    console.error('Analytics error:', err.message);
+    if (err.code === 401 || err.response?.status === 401) {
+      req.session.destroy();
+      return res.status(401).json({ error: 'Session expired, please log in again' });
+    }
+    res.status(500).json({ error: err.message });
   }
 });
 

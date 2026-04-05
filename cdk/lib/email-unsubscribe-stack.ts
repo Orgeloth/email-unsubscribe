@@ -60,6 +60,15 @@ export class EmailUnsubscribeStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
+    const analyticsTable = new dynamodb.Table(this, 'AnalyticsTable', {
+      tableName: `${prefix}-analytics`,
+      partitionKey: { name: 'userEmail', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'date', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'expiresAt',
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     // ---------------------------------------------------------------------------
     // Secrets from SSM Parameter Store
     // ---------------------------------------------------------------------------
@@ -124,6 +133,7 @@ export class EmailUnsubscribeStack extends cdk.Stack {
         SESSIONS_TABLE: sessionsTable.tableName,
         ALLOWLIST_TABLE: allowlistTable.tableName,
         HISTORY_TABLE: historyTable.tableName,
+        ANALYTICS_TABLE: analyticsTable.tableName,
         GOOGLE_CLIENT_ID: googleClientId,
         GOOGLE_CLIENT_SECRET: googleClientSecret,
         SESSION_SECRET: sessionSecret,
@@ -135,6 +145,7 @@ export class EmailUnsubscribeStack extends cdk.Stack {
     sessionsTable.grantReadWriteData(fn);
     allowlistTable.grantReadWriteData(fn);
     historyTable.grantReadWriteData(fn);
+    analyticsTable.grantReadWriteData(fn);
 
     // ---------------------------------------------------------------------------
     // Lambda Function URL (HTTPS endpoint, no API Gateway cost)
@@ -395,6 +406,10 @@ export class EmailUnsubscribeStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'HistoryTableName', {
       value: historyTable.tableName,
+    });
+
+    new cdk.CfnOutput(this, 'AnalyticsTableName', {
+      value: analyticsTable.tableName,
     });
   }
 }

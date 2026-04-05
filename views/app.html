@@ -6,6 +6,7 @@
   <title>Email Unsubscribe Manager</title>
   <link rel="stylesheet" href="/app.css">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <script>
     (function() {
       const t = localStorage.getItem('theme');
@@ -220,6 +221,49 @@
     }
     .policy-accept-btn:hover { opacity: .88; }
     .policy-accept-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+    /* Tab navigation */
+    .tab-nav {
+      display: flex; gap: 0; margin-bottom: 24px;
+      border-bottom: 2px solid var(--border);
+    }
+    .tab-btn {
+      padding: 9px 20px; font-size: 13.5px; font-weight: 500;
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-2); border-bottom: 2px solid transparent;
+      margin-bottom: -2px; transition: color var(--transition), border-color var(--transition);
+    }
+    .tab-btn:hover { color: var(--text-1); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* Analytics */
+    .analytics-controls {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 20px;
+    }
+    .analytics-chart-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+      box-shadow: var(--shadow-sm); margin-bottom: 16px;
+      position: relative; height: 280px;
+    }
+    .analytics-trend {
+      font-size: 13.5px; color: var(--text-2); margin-bottom: 8px;
+    }
+    .trend-up   { color: var(--danger); font-weight: 600; }
+    .trend-down { color: var(--success); font-weight: 600; }
+    .trend-flat { color: var(--text-3); font-weight: 600; }
+    .analytics-cap-warn {
+      font-size: 12.5px; color: var(--warning, #d97706);
+      background: var(--warning-muted, #fef3c7);
+      border: 1px solid var(--warning-border, #fde68a);
+      border-radius: var(--radius-xs); padding: 8px 12px;
+      margin-bottom: 12px;
+    }
+    .analytics-loading {
+      text-align: center; padding: 60px 0;
+      color: var(--text-3); font-size: 13.5px;
+    }
+    .analytics-loading .spinner { margin: 0 auto 12px; }
   </style>
 </head>
 <body>
@@ -253,6 +297,34 @@
   </header>
 
   <main>
+    <div class="tab-nav">
+      <button class="tab-btn active" id="tab-btn-emails" onclick="showTab('emails')">Emails</button>
+      <button class="tab-btn" id="tab-btn-analytics" onclick="showTab('analytics')">Analytics</button>
+    </div>
+
+    <!-- ── Analytics section ─────────────────────────────────────────────── -->
+    <div id="section-analytics" style="display:none">
+      <div class="analytics-controls">
+        <div class="range-group">
+          <button class="range-btn active" id="abtn-week"  onclick="setAnalyticsPeriod('week')">Last 7 Days</button>
+          <button class="range-btn"        id="abtn-month" onclick="setAnalyticsPeriod('month')">Last 30 Days</button>
+        </div>
+      </div>
+      <div id="analytics-cap-warn" class="analytics-cap-warn" style="display:none">
+        Results may be incomplete — your inbox exceeded 500 matching emails in this period.
+      </div>
+      <div id="analytics-loading" class="analytics-loading" style="display:none">
+        <div class="spinner"></div>
+        <p>Fetching your inbox trends…</p>
+      </div>
+      <div id="analytics-chart-wrap" class="analytics-chart-wrap" style="display:none">
+        <canvas id="analytics-chart"></canvas>
+      </div>
+      <div id="analytics-trend" class="analytics-trend" style="display:none"></div>
+    </div>
+
+    <!-- ── Emails section ────────────────────────────────────────────────── -->
+    <div id="section-emails">
     <div class="controls">
       <div class="range-group">
         <button class="range-btn active" id="btn-yesterday" onclick="setRange('yesterday')">Yesterday</button>
@@ -306,6 +378,7 @@
         <tbody id="email-tbody"></tbody>
       </table>
     </div>
+    </div> <!-- /section-emails -->
   </main>
 
   <script>
@@ -686,6 +759,132 @@
     async function declinePolicy() {
       await fetch('/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } });
       window.location.href = '/';
+    }
+
+    // ── Tab switching ─────────────────────────────────────────────────────
+    let activeTab = 'emails';
+    function showTab(tab) {
+      activeTab = tab;
+      document.getElementById('section-emails').style.display    = tab === 'emails'    ? '' : 'none';
+      document.getElementById('section-analytics').style.display = tab === 'analytics' ? '' : 'none';
+      document.getElementById('tab-btn-emails').classList.toggle('active',    tab === 'emails');
+      document.getElementById('tab-btn-analytics').classList.toggle('active', tab === 'analytics');
+      if (tab === 'analytics' && !analyticsLoaded) fetchAnalytics();
+    }
+
+    // ── Analytics ─────────────────────────────────────────────────────────
+    let analyticsLoaded = false;
+    let analyticsPeriod = 'week';
+    let analyticsChart = null;
+
+    function setAnalyticsPeriod(period) {
+      analyticsPeriod = period;
+      document.getElementById('abtn-week').classList.toggle('active',  period === 'week');
+      document.getElementById('abtn-month').classList.toggle('active', period === 'month');
+      analyticsLoaded = false;
+      fetchAnalytics();
+    }
+
+    async function fetchAnalytics() {
+      const loading  = document.getElementById('analytics-loading');
+      const chartWrap = document.getElementById('analytics-chart-wrap');
+      const trendEl  = document.getElementById('analytics-trend');
+      const capWarn  = document.getElementById('analytics-cap-warn');
+
+      loading.style.display   = 'block';
+      chartWrap.style.display = 'none';
+      trendEl.style.display   = 'none';
+      capWarn.style.display   = 'none';
+
+      try {
+        const res = await fetch(`/api/analytics?period=${analyticsPeriod}`);
+        const data = await res.json();
+        if (!res.ok) {
+          if (res.status === 401) return window.location.href = '/';
+          throw new Error(data.error || 'Failed to fetch analytics');
+        }
+
+        loading.style.display   = 'none';
+        chartWrap.style.display = 'block';
+        trendEl.style.display   = 'block';
+
+        if (data.capped) capWarn.style.display = 'block';
+
+        renderAnalyticsChart(data);
+        renderTrend(data);
+        analyticsLoaded = true;
+      } catch (e) {
+        loading.innerHTML = `<p style="color:var(--danger)">${esc(e.message)}</p>`;
+      }
+    }
+
+    function renderAnalyticsChart(data) {
+      const isDark = document.documentElement.classList.contains('dark');
+      const gridColor  = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.07)';
+      const labelColor = isDark ? '#9ca3af' : '#6b7280';
+      const barColor   = 'rgba(99,102,241,.75)';
+      const barHover   = 'rgba(99,102,241,1)';
+
+      if (analyticsChart) { analyticsChart.destroy(); analyticsChart = null; }
+
+      const ctx = document.getElementById('analytics-chart').getContext('2d');
+      analyticsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.labels.map(d => {
+            const dt = new Date(d + 'T00:00:00');
+            return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }),
+          datasets: [{
+            label: 'Unsubscribable emails',
+            data: data.counts,
+            backgroundColor: barColor,
+            hoverBackgroundColor: barHover,
+            borderRadius: 4,
+            borderSkipped: false,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${ctx.parsed.y} email${ctx.parsed.y !== 1 ? 's' : ''}`,
+              },
+            },
+          },
+          scales: {
+            x: { grid: { color: gridColor }, ticks: { color: labelColor, maxRotation: 45 } },
+            y: { grid: { color: gridColor }, ticks: { color: labelColor, precision: 0 }, beginAtZero: true },
+          },
+        },
+      });
+    }
+
+    function renderTrend(data) {
+      const el = document.getElementById('analytics-trend');
+      const { total, previousTotal } = data;
+      const label = analyticsPeriod === 'week' ? '7 days' : '30 days';
+
+      if (previousTotal === 0 && total === 0) {
+        el.innerHTML = `<span class="trend-flat">—</span> No unsubscribable emails in either period.`;
+        return;
+      }
+      if (previousTotal === 0) {
+        el.innerHTML = `<span class="trend-up">↑ New</span> ${total} email${total !== 1 ? 's' : ''} this period (no data for previous ${label}).`;
+        return;
+      }
+
+      const pct = Math.round(Math.abs(total - previousTotal) / previousTotal * 100);
+      if (total > previousTotal) {
+        el.innerHTML = `<span class="trend-up">↑ ${pct}% more</span> than the previous ${label} (${total} vs ${previousTotal}).`;
+      } else if (total < previousTotal) {
+        el.innerHTML = `<span class="trend-down">↓ ${pct}% fewer</span> than the previous ${label} (${total} vs ${previousTotal}).`;
+      } else {
+        el.innerHTML = `<span class="trend-flat">— No change</span> vs the previous ${label} (${total} email${total !== 1 ? 's' : ''}).`;
+      }
     }
 
     async function init() {
