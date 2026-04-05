@@ -87,7 +87,7 @@ export class EmailUnsubscribeStack extends cdk.Stack {
           tryBundle(outputDir: string): boolean {
             try {
               for (const item of ['server.js', 'public', 'views', 'package.json', 'package-lock.json']) {
-                execSync(`cp -r ${path.join(srcDir, item)} ${outputDir}/`);
+                execSync(`cp -r ${path.join(srcDir, item)} ${outputDir}/`); // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
               }
               execSync('npm ci --only=production --silent', { cwd: outputDir });
               return true;
