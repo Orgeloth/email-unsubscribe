@@ -265,6 +265,50 @@
     }
     .analytics-loading .spinner { margin: 0 auto 12px; }
 
+    /* ── Card list (mobile email view) ───────────────────────────────────── */
+    .card-list { display: none; flex-direction: column; gap: 10px; }
+
+    .email-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 14px 14px 12px;
+      box-shadow: var(--shadow-sm);
+    }
+    .email-card-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 10px; margin-bottom: 7px;
+    }
+    .email-card-domain {
+      font-weight: 600; font-size: 14.5px; color: var(--text-1);
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      line-height: 1.3; min-width: 0;
+    }
+    .email-card-meta {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 12px; color: var(--text-2); margin-bottom: 5px; gap: 8px;
+    }
+    .email-card-sender { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .email-card-date   { color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
+    .email-card-subject {
+      font-size: 13px; color: var(--text-3);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .email-card-expand {
+      background: none; border: none; cursor: pointer;
+      color: var(--accent); font-size: 12.5px; font-weight: 500;
+      padding: 8px 0 0; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .email-card-subs {
+      margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .email-card-sub-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 10px; margin-bottom: 3px;
+    }
+    .email-card-sub-sender { font-size: 12.5px; color: var(--text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .email-card-sub-subject { font-size: 12px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+    .email-card-sub-date   { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
     /* ── Mobile overrides ─────────────────────────────────────────────────── */
     @media (max-width: 640px) {
       main { padding: 0 12px; margin-top: 16px; }
@@ -281,8 +325,9 @@
       /* Slightly shorter chart on small screens */
       .analytics-chart-wrap { height: 220px; }
 
-      /* Subject column: allow it to truncate more aggressively */
-      .subject-cell { max-width: 140px; }
+      /* Hide table, show card list */
+      .table-wrap { display: none !important; }
+      .card-list  { display: flex; }
     }
   </style>
 </head>
@@ -398,6 +443,7 @@
         <tbody id="email-tbody"></tbody>
       </table>
     </div>
+    <div class="card-list" id="email-cards"></div>
     </div> <!-- /section-emails -->
   </main>
 
@@ -635,9 +681,93 @@
       }
     }
 
+    function renderCards(emails) {
+      const container = document.getElementById('email-cards');
+      if (!container) return;
+
+      const chevronSvg = open => `<svg class="expand-icon${open ? ' open' : ''}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+
+      if (!isGrouped) {
+        container.innerHTML = sorted(emails).map(e => {
+          const done = unsubscribedDomains.has(e.domain);
+          return `
+            <div class="email-card">
+              <div class="email-card-header">
+                <div class="email-card-domain">${esc(e.domain)}</div>
+                <div style="flex-shrink:0">${unsubBtn(e.domain, e.senderEmail, e.unsubscribeUrl, done, e.oneClick)}</div>
+              </div>
+              <div class="email-card-meta">
+                <span class="email-card-sender">${esc(e.senderEmail)}</span>
+                <span class="email-card-date">${esc(e.date)}</span>
+              </div>
+              <div class="email-card-subject" title="${esc(e.subject)}">${esc(e.subject)}</div>
+            </div>`;
+        }).join('');
+        return;
+      }
+
+      const groupMap = new Map();
+      emails.forEach(e => {
+        if (!groupMap.has(e.domain)) groupMap.set(e.domain, []);
+        groupMap.get(e.domain).push(e);
+      });
+      groupMap.forEach(items => items.sort((a, b) => new Date(b.date) - new Date(a.date)));
+
+      let groups = [...groupMap.entries()].map(([domain, items]) => ({ domain, items, rep: items[0] }));
+      groups.sort((a, b) => {
+        let va, vb;
+        if (sortCol === 'domain')     { va = a.domain.toLowerCase();               vb = b.domain.toLowerCase(); }
+        else if (sortCol === 'date')  { va = new Date(a.rep.date).getTime();        vb = new Date(b.rep.date).getTime(); }
+        else                          { va = (a.rep[sortCol] || '').toLowerCase();  vb = (b.rep[sortCol] || '').toLowerCase(); }
+        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      container.innerHTML = groups.map(({ domain, items, rep }) => {
+        const expanded = expandedDomains.has(domain);
+        const done = unsubscribedDomains.has(domain);
+        const countBadge = items.length > 1 ? `<span class="count-badge">${items.length}</span>` : '';
+        const unsubBadge = done ? `<span class="badge badge-active" style="margin-left:0">✓ Unsubscribed</span>` : '';
+
+        const expandBtn = items.length > 1 ? `
+          <button class="email-card-expand" onclick="toggleDomain('${esc(domain)}')">
+            ${chevronSvg(expanded)}${expanded ? 'Collapse' : `${items.length - 1} more email${items.length - 1 !== 1 ? 's' : ''}`}
+          </button>` : '';
+
+        const subs = expanded && items.length > 1 ? `
+          <div class="email-card-subs">
+            ${items.map(e => `
+              <div>
+                <div class="email-card-sub-header">
+                  <span class="email-card-sub-sender">${esc(e.senderEmail)}</span>
+                  <div style="flex-shrink:0">${unsubBtn(e.domain, e.senderEmail, e.unsubscribeUrl, unsubscribedDomains.has(e.domain), e.oneClick)}</div>
+                </div>
+                <div class="email-card-sub-subject" title="${esc(e.subject)}">${esc(e.subject)}</div>
+                <div class="email-card-sub-date">${esc(e.date)}</div>
+              </div>`).join('')}
+          </div>` : '';
+
+        return `
+          <div class="email-card">
+            <div class="email-card-header">
+              <div class="email-card-domain">${esc(domain)}${countBadge}${unsubBadge}</div>
+              <div style="flex-shrink:0">${unsubBtn(rep.domain, rep.senderEmail, rep.unsubscribeUrl, done, rep.oneClick)}</div>
+            </div>
+            <div class="email-card-meta">
+              <span class="email-card-sender">${esc(rep.senderEmail)}</span>
+              <span class="email-card-date">${esc(rep.date)}</span>
+            </div>
+            <div class="email-card-subject" title="${esc(rep.subject)}">${esc(rep.subject)}</div>
+            ${expandBtn}${subs}
+          </div>`;
+      }).join('');
+    }
+
     function renderTable(emails) {
       updateSortHeaders();
       resetBulkState();
+      renderCards(emails);
       const tbody = document.getElementById('email-tbody');
 
       if (!isGrouped) {
