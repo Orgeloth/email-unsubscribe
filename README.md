@@ -1,14 +1,42 @@
 # Email Unsubscribe Manager
 
-A web app that connects to your Gmail account and shows emails with unsubscribe links from the past day or week — so you can quickly clean up your inbox.
+A web app that connects to your Gmail account so you can unsubscribe from marketing emails and keep your inbox clean.
 
 ## Features
 
-- Sign in with Google (OAuth2, read-only Gmail access)
-- View emails with unsubscribe links from **yesterday** or the **last 7 days**
-- Displays sender domain, email address, subject, date, and a direct unsubscribe link
-- Detects unsubscribe links via `List-Unsubscribe` header and email body scanning
-- Deduplicates by sender + unsubscribe URL
+**Emails tab**
+- Sign in with Google OAuth2
+- Scan your inbox for emails with unsubscribe links (yesterday / last 7 / last 30 days)
+- One-click unsubscribe (RFC 8058) or open the sender's unsubscribe page
+- Group by domain, sort by any column, filter by keyword, export to CSV
+- Bulk-select and open multiple unsubscribe links at once
+
+**Clean tab**
+- After unsubscribing, move remaining emails from those senders to Gmail Trash in bulk
+- Skips starred and important emails by default (configurable)
+- Confirmation dialog with "don't ask again" option
+- Processes up to 500 emails per run
+
+**Analytics tab**
+- Bar chart of unsubscribable emails received per day over the past 7 or 30 days
+- Trend indicator comparing current period to the previous equivalent period
+- DynamoDB-backed caching — fast on repeat loads, minimal Gmail API usage
+
+**Settings & account**
+- Dark / light mode toggle (persisted)
+- Suppress clean inbox confirmation
+- Permanently delete account and all associated data
+
+**PWA — installable**
+- Add to Home Screen on iOS (Safari → Share → Add to Home Screen)
+- Install prompt on Android Chrome
+- Runs full-screen, no browser chrome
+
+**Security**
+- Allowlist-based access control — only approved Gmail addresses can sign in
+- Session tokens encrypted at rest (AES-256-GCM)
+- Security headers: HSTS, CSP, X-Frame-Options, X-Content-Type-Options
+- Admin panel: manage users, view active sessions, audit unsubscribe history
 
 ---
 

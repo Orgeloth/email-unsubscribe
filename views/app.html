@@ -336,6 +336,172 @@
       .table-wrap { display: none !important; }
       .card-list  { display: flex; }
     }
+
+    /* ── Settings drawer ──────────────────────────────────────────────────── */
+    .settings-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,.35); backdrop-filter: blur(2px);
+    }
+    .settings-drawer {
+      position: fixed; top: 0; right: 0; bottom: 0; z-index: 201;
+      width: 340px; max-width: 100vw;
+      background: var(--surface); border-left: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform .25s ease;
+    }
+    .settings-drawer.open { transform: translateX(0); }
+    .settings-drawer-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px 16px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .settings-drawer-header h2 {
+      font-size: 15px; font-weight: 700; color: var(--text-1); letter-spacing: -.01em;
+    }
+    .settings-close-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--surface-2);
+      color: var(--text-2); cursor: pointer; font-size: 16px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      transition: background var(--transition), color var(--transition);
+    }
+    .settings-close-btn:hover { background: var(--border); color: var(--text-1); }
+    .settings-body { flex: 1; overflow-y: auto; padding: 20px; }
+    .settings-section {
+      margin-bottom: 28px; padding-bottom: 28px; border-bottom: 1px solid var(--border);
+    }
+    .settings-section:last-child { border-bottom: none; margin-bottom: 0; }
+    .settings-section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--text-3); margin-bottom: 14px;
+    }
+    .settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 12px;
+    }
+    .settings-row:last-child { margin-bottom: 0; }
+    .settings-row-label { font-size: 13.5px; color: var(--text-1); }
+    .settings-row-sub   { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+    /* Toggle switch */
+    .toggle-switch { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0; border-radius: 11px;
+      background: var(--border); cursor: pointer;
+      transition: background var(--transition);
+    }
+    .toggle-track::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; transition: transform var(--transition);
+    }
+    .toggle-switch input:checked + .toggle-track { background: var(--accent); }
+    .toggle-switch input:checked + .toggle-track::after { transform: translateX(16px); }
+    .settings-gear-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--surface-2);
+      color: var(--text-2); cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+    .settings-gear-btn:hover { background: var(--border); color: var(--text-1); }
+    /* Danger zone */
+    .settings-danger-zone .danger-desc {
+      font-size: 13px; color: var(--text-2); margin-bottom: 14px; line-height: 1.5;
+    }
+    .delete-confirm-box { margin-top: 14px; display: none; }
+    .delete-confirm-box p { font-size: 13px; color: var(--danger); margin-bottom: 10px; font-weight: 500; }
+    .delete-confirm-input {
+      width: 100%; padding: 8px 10px; font-size: 13px;
+      border: 1.5px solid var(--danger-border); border-radius: var(--radius-xs);
+      background: var(--surface); color: var(--text-1); outline: none; margin-bottom: 10px;
+    }
+    .delete-confirm-input:focus { border-color: var(--danger); }
+    .delete-confirm-actions { display: flex; gap: 8px; }
+
+    /* ── Clean inbox tab ──────────────────────────────────────────────────── */
+    .clean-intro {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      box-shadow: var(--shadow-sm); margin-bottom: 20px;
+    }
+    .clean-intro p { font-size: 13.5px; color: var(--text-2); line-height: 1.65; }
+    .clean-intro p + p { margin-top: 8px; }
+    .clean-options {
+      display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;
+    }
+    .clean-option-label {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13.5px; color: var(--text-1); cursor: pointer;
+    }
+    .clean-option-label input[type="checkbox"] {
+      accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer;
+    }
+    .clean-senders-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);
+      margin-bottom: 20px; overflow: hidden;
+    }
+    .clean-senders-header {
+      padding: 10px 16px; background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--text-3);
+    }
+    .clean-sender-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; border-bottom: 1px solid var(--border);
+      font-size: 13.5px; gap: 12px;
+    }
+    .clean-sender-row:last-child { border-bottom: none; }
+    .clean-sender-domain { font-weight: 500; color: var(--text-1); }
+    .clean-sender-email  { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+    .clean-sender-badge  {
+      font-size: 11px; color: var(--text-3); white-space: nowrap;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 2px 8px; flex-shrink: 0;
+    }
+    .clean-result {
+      padding: 14px 18px; border-radius: var(--radius-xs);
+      font-size: 13.5px; font-weight: 500; margin-bottom: 16px;
+      display: none;
+    }
+    .clean-result.success {
+      background: var(--success-muted); color: var(--success);
+      border: 1px solid rgba(34,197,94,.25);
+    }
+    .clean-result.warning {
+      background: var(--warn-muted); color: #d97706;
+      border: 1px solid #fde68a;
+    }
+
+    /* ── Confirmation modal ───────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,.55); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .modal-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow-lg);
+      max-width: 440px; width: 100%; padding: 28px 24px 22px;
+    }
+    .modal-box h3 {
+      font-size: 16px; font-weight: 700; color: var(--text-1);
+      margin-bottom: 10px; letter-spacing: -.01em;
+    }
+    .modal-box p {
+      font-size: 13.5px; color: var(--text-2); line-height: 1.6; margin-bottom: 10px;
+    }
+    .modal-suppress-label {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text-2); margin: 14px 0; cursor: pointer;
+    }
+    .modal-suppress-label input { accent-color: var(--accent); }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
   </style>
 </head>
 <body>
@@ -364,14 +530,17 @@
         <svg class="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         <svg class="icon-sun"  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
       </button>
+      <button class="settings-gear-btn" onclick="openSettings()" title="Settings">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
       <button class="btn btn-ghost btn-sm" onclick="logout()">Sign out</button>
     </div>
   </header>
 
   <main>
     <div class="tab-nav">
-      <button class="tab-btn active" id="tab-btn-emails" onclick="showTab('emails')">Emails</button>
-      <button class="tab-btn" id="tab-btn-analytics" onclick="showTab('analytics')">Analytics</button>
+      <button class="tab-btn active" id="tab-btn-emails"    onclick="showTab('emails')">Emails</button>
+      <button class="tab-btn"        id="tab-btn-analytics" onclick="showTab('analytics')">Analytics</button>
     </div>
 
     <!-- ── Analytics section ─────────────────────────────────────────────── -->
@@ -1044,12 +1213,93 @@
       }
     }
 
+    // ── Settings ──────────────────────────────────────────────────────────────
+    let userSettings = {};
+
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/user-settings');
+        if (res.ok) userSettings = await res.json();
+      } catch { /* non-critical */ }
+    }
+
+    async function saveSetting(key, value) {
+      userSettings[key] = value;
+      await fetch('/api/user-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        body: JSON.stringify({ [key]: value }),
+      }).catch(() => {});
+    }
+
+    function openSettings() {
+      // Sync toggles to current state before opening
+      document.getElementById('setting-dark-mode').checked =
+        document.documentElement.classList.contains('dark');
+      document.getElementById('setting-suppress-confirm').checked =
+        !!userSettings.suppressCleanConfirmation;
+      document.getElementById('settings-overlay').style.display = '';
+      requestAnimationFrame(() =>
+        document.getElementById('settings-drawer').classList.add('open')
+      );
+      // Reset delete confirm box
+      document.getElementById('delete-confirm-box').style.display = 'none';
+      document.getElementById('delete-confirm-input').value = '';
+      document.getElementById('delete-confirm-error').style.display = 'none';
+    }
+
+    function closeSettings() {
+      document.getElementById('settings-drawer').classList.remove('open');
+      setTimeout(() => { document.getElementById('settings-overlay').style.display = 'none'; }, 260);
+    }
+
+    function settingToggleDark() {
+      toggleDark();
+      document.getElementById('setting-dark-mode').checked =
+        document.documentElement.classList.contains('dark');
+    }
+
+    function settingToggleSuppress(checked) {
+      saveSetting('suppressCleanConfirmation', checked);
+    }
+
+    function showDeleteConfirm() {
+      document.getElementById('delete-confirm-box').style.display = 'block';
+      document.getElementById('delete-confirm-input').focus();
+    }
+
+    async function confirmDeleteAccount() {
+      const val = document.getElementById('delete-confirm-input').value.trim();
+      const errEl = document.getElementById('delete-confirm-error');
+      if (val !== 'DELETE') {
+        errEl.textContent = 'Type DELETE (all caps) to confirm.';
+        errEl.style.display = 'block';
+        return;
+      }
+      errEl.style.display = 'none';
+      const btn = document.getElementById('delete-account-confirm-btn');
+      btn.disabled = true; btn.textContent = 'Deleting…';
+      try {
+        const res = await fetch('/api/account', {
+          method: 'DELETE',
+          headers: { 'X-CSRF-Token': csrfToken },
+        });
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        window.location.href = '/';
+      } catch (e) {
+        btn.disabled = false; btn.textContent = 'Permanently Delete';
+        errEl.textContent = 'Error: ' + e.message;
+        errEl.style.display = 'block';
+      }
+    }
+
     async function init() {
       const res = await fetch('/auth/status');
       const data = await res.json();
       if (!data.authenticated) return window.location.href = '/';
       csrfToken = data.csrfToken;
       renderUserInfo(data.user);
+      await loadSettings();
       if (data.requiresPolicyAcceptance) {
         document.getElementById('policy-overlay').classList.remove('hidden');
       }
@@ -1062,6 +1312,67 @@
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
   </script>
+
+  <!-- Settings overlay + drawer -->
+  <div id="settings-overlay" class="settings-overlay" onclick="closeSettings()" style="display:none"></div>
+  <div id="settings-drawer" class="settings-drawer">
+    <div class="settings-drawer-header">
+      <h2>Settings</h2>
+      <button class="settings-close-btn" onclick="closeSettings()" title="Close">✕</button>
+    </div>
+    <div class="settings-body">
+
+      <!-- Appearance -->
+      <div class="settings-section">
+        <div class="settings-section-title">Appearance</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Dark mode</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-dark-mode" onchange="settingToggleDark()">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Inbox Clean -->
+      <div class="settings-section">
+        <div class="settings-section-title">Inbox Clean</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Skip confirmation</div>
+            <div class="settings-row-sub">Don't ask before cleaning your inbox</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-suppress-confirm" onchange="settingToggleSuppress(this.checked)">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Account / Danger zone -->
+      <div class="settings-section settings-danger-zone">
+        <div class="settings-section-title">Account</div>
+        <p class="danger-desc">
+          Permanently removes your account from this app — your Google OAuth access is revoked,
+          and all stored history and analytics data is deleted. This cannot be undone.
+        </p>
+        <button class="btn btn-danger" onclick="showDeleteConfirm()">Delete Account…</button>
+        <div class="delete-confirm-box" id="delete-confirm-box">
+          <p>Type <strong>DELETE</strong> to confirm permanent account deletion:</p>
+          <input class="delete-confirm-input" id="delete-confirm-input"
+                 type="text" placeholder="DELETE" autocomplete="off" autocorrect="off" spellcheck="false">
+          <p id="delete-confirm-error" style="color:var(--danger);font-size:12px;display:none;margin-bottom:8px;"></p>
+          <div class="delete-confirm-actions">
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('delete-confirm-box').style.display='none'">Cancel</button>
+            <button class="btn btn-danger btn-sm" id="delete-account-confirm-btn" onclick="confirmDeleteAccount()">Permanently Delete</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
 
   <!-- Privacy policy acceptance modal -->
   <div id="policy-overlay" class="policy-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="policy-modal-title">

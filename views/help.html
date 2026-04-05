@@ -136,7 +136,7 @@
 
   <main>
     <p class="page-title">How to use Email Unsubscribe Manager</p>
-    <p class="page-subtitle">Sign in with Google, find emails with unsubscribe links, and clean up your inbox in one place.</p>
+    <p class="page-subtitle">Sign in with Google, find and unsubscribe from marketing emails, then clean your inbox — all in one place.</p>
 
     <!-- Getting Started -->
     <div class="help-section">
@@ -146,8 +146,22 @@
         </span>
         Getting Started
       </h2>
-      <p>After signing in with your Google account, you land on the main app. The app has <strong>read-only</strong> access to your Gmail — it can never send, delete, or modify your emails.</p>
-      <p>Click <strong>Fetch Emails</strong> to scan your inbox for emails that contain unsubscribe links. Results are grouped by sender domain by default.</p>
+      <p>After signing in with your Google account, you land on the main app with three tabs:</p>
+      <ul class="feature-list">
+        <li>
+          <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span><strong>Emails</strong> — find emails with unsubscribe links and unsubscribe from senders.</span>
+        </li>
+        <li>
+          <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span><strong>Clean</strong> — move emails from senders you've already unsubscribed from to Gmail Trash in bulk.</span>
+        </li>
+        <li>
+          <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span><strong>Analytics</strong> — a bar chart showing how many marketing emails you've received per day over the past 7 or 30 days.</span>
+        </li>
+      </ul>
+      <p style="margin-top:12px">Click <strong>Fetch Emails</strong> in the Emails tab to scan your inbox for emails with unsubscribe links. Results are grouped by sender domain by default.</p>
     </div>
 
     <!-- Time Range -->
@@ -250,6 +264,61 @@
       </ul>
     </div>
 
+    <!-- Clean Inbox -->
+    <div class="help-section">
+      <h2>
+        <span class="section-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </span>
+        Clean Inbox
+      </h2>
+      <p>The <strong>Clean</strong> tab lets you bulk-remove emails from senders you've already unsubscribed from. It searches Gmail for emails from those senders and moves them to your <strong>Gmail Trash</strong> — they are recoverable from Trash for 30 days before Gmail permanently deletes them.</p>
+      <ul class="feature-list">
+        <li>
+          <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Only senders you've unsubscribed from inside this app are targeted — not your entire inbox.</span>
+        </li>
+        <li>
+          <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span><strong>Skip starred emails</strong> and <strong>Skip important emails</strong> options are checked by default to protect emails you've marked.</span>
+        </li>
+        <li>
+          <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Up to <strong>500 emails</strong> are processed per clean. If your inbox has more, a notice is shown — simply run Clean again.</span>
+        </li>
+        <li>
+          <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>A confirmation dialog appears before cleaning. You can suppress it via <strong>Settings → Inbox Clean → Skip confirmation</strong>.</span>
+        </li>
+      </ul>
+      <p style="margin-top:12px"><strong>Note:</strong> The Inbox Clean feature requires Gmail write access (to move emails to Trash). This permission is requested when you first sign in.</p>
+    </div>
+
+    <!-- Settings -->
+    <div class="help-section">
+      <h2>
+        <span class="section-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </span>
+        Settings
+      </h2>
+      <p>Click the <strong>gear icon</strong> in the top-right corner of the app to open the Settings panel. Your preferences are saved to your account and persist across devices.</p>
+      <ul class="feature-list">
+        <li>
+          <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span><strong>Dark mode</strong> — toggle between light and dark themes. Can also be toggled from the moon/sun icon in the header.</span>
+        </li>
+        <li>
+          <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span><strong>Skip confirmation</strong> — suppress the confirmation dialog that appears before each Inbox Clean.</span>
+        </li>
+        <li>
+          <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+          <span><strong>Delete Account</strong> — permanently removes your profile, all unsubscribe history, analytics data, and active sessions from the app. Type <kbd>DELETE</kbd> to confirm. This cannot be undone.</span>
+        </li>
+      </ul>
+    </div>
+
     <!-- Admin Section -->
     <div class="help-section">
       <h2>
@@ -307,7 +376,7 @@
       <ul class="feature-list">
         <li>
           <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          <span>The app requests <strong>read-only</strong> Gmail access. It cannot send, delete, or modify any emails.</span>
+          <span>The app requests Gmail access to <strong>read</strong> your inbox and <strong>move emails to Trash</strong> (required for Inbox Clean). It can never send emails or permanently delete them — only move them to Trash, where they remain recoverable for 30 days.</span>
         </li>
         <li>
           <svg class="feat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>

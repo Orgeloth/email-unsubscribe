@@ -72,15 +72,7 @@ Tools to run manually and/or integrate into the CI/CD pipeline.
 
 ## Email Infrastructure
 - [x] **Obfuscate contact email in privacy policy and terms** — JS assembles `admin@dorangroup.io` at runtime; no address in raw HTML source.
-- [ ] **SES email receiving + forwarding** — Set up `admin@dorangroup.io` to forward to personal Gmail. Requires:
-  - Route 53 MX record → `inbound-smtp.us-east-1.amazonaws.com`
-  - S3 bucket for raw email storage (with 30-day lifecycle policy)
-  - SES receipt rule set + rule for `admin@dorangroup.io` (spam/virus scanning enabled, reject unknown recipients)
-  - Lambda forwarder using `aws-lambda-ses-forwarder` — From: `admin@dorangroup.io`, Reply-To: original sender
-  - Lambda reserved concurrency limit (e.g. 10) to cap blast radius
-  - AWS Budget alert at $2–3/month on SES
-  - Request SES production access (one-time, required to send to Gmail)
-  - All resources added to CDK stack
+- [x] **SES email receiving + forwarding** — `admin@dorangroup.io` forwards to `brad.l.doran@gmail.com`. All infrastructure deployed (MX record, S3 bucket, receipt rule set, Lambda forwarder, budget alert). SES production access approved.
 
 ## Backlog
 - [ ] **Webhook / Slack + Discord notification** — Post to Slack and/or Discord when new marketing emails arrive. Admin configures webhook URLs per channel. Slack uses incoming webhooks; Discord uses the same format (`application/json` POST to webhook URL).

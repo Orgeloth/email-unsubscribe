@@ -813,6 +813,223 @@ app.post('/api/one-click-unsubscribe', requireAuth, requireCsrf, async (req, res
 });
 
 // ---------------------------------------------------------------------------
+// User settings
+// ---------------------------------------------------------------------------
+app.get('/api/user-settings', requireAuth, async (req, res) => {
+  try {
+    const userEmail = req.session.user.email;
+    if (!ddb || !ALLOWLIST_TABLE) return res.json({});
+    const { GetCommand } = require('@aws-sdk/lib-dynamodb');
+    const { Item } = await ddb.send(new GetCommand({ TableName: ALLOWLIST_TABLE, Key: { email: userEmail } }));
+    res.json(Item?.settings || {});
+  } catch (err) {
+    console.error('Get user-settings error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/user-settings', requireAuth, requireCsrf, async (req, res) => {
+  try {
+    const userEmail = req.session.user.email;
+    if (!ddb || !ALLOWLIST_TABLE) return res.json({ ok: true, settings: req.body });
+    const { GetCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+    const { Item } = await ddb.send(new GetCommand({ TableName: ALLOWLIST_TABLE, Key: { email: userEmail } }));
+    const existing = Item?.settings || {};
+    const merged = { ...existing, ...req.body };
+    await ddb.send(new UpdateCommand({
+      TableName: ALLOWLIST_TABLE,
+      Key: { email: userEmail },
+      UpdateExpression: 'SET settings = :s',
+      ExpressionAttributeValues: { ':s': merged },
+    }));
+    res.json({ ok: true, settings: merged });
+  } catch (err) {
+    console.error('Post user-settings error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Clean inbox — senders list + trash action
+// ---------------------------------------------------------------------------
+app.get('/api/clean-inbox/senders', requireAuth, async (req, res) => {
+  try {
+    const userEmail = req.session.user.email;
+    if (!ddb || !HISTORY_TABLE) return res.json({ senders: [] });
+    const { QueryCommand } = require('@aws-sdk/lib-dynamodb');
+    const { Items = [] } = await ddb.send(new QueryCommand({
+      TableName: HISTORY_TABLE,
+      KeyConditionExpression: 'userEmail = :email',
+      ExpressionAttributeValues: { ':email': userEmail },
+    }));
+    const senders = Items.map(({ domain, senderEmail, unsubscribedAt, count }) => ({ domain, senderEmail, unsubscribedAt, count }));
+    res.json({ senders });
+  } catch (err) {
+    console.error('Clean inbox senders error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/clean-inbox', requireAuth, requireCsrf, async (req, res) => {
+  try {
+    const { ignoreStarred = false, ignoreImportant = false } = req.body;
+    const userEmail = req.session.user.email;
+
+    // Get unsubscribed senders from history table
+    let senders = [];
+    if (ddb && HISTORY_TABLE) {
+      const { QueryCommand } = require('@aws-sdk/lib-dynamodb');
+      const { Items = [] } = await ddb.send(new QueryCommand({
+        TableName: HISTORY_TABLE,
+        KeyConditionExpression: 'userEmail = :email',
+        ExpressionAttributeValues: { ':email': userEmail },
+      }));
+      senders = Items;
+    }
+
+    if (!senders.length) {
+      return res.json({ trashed: 0, message: 'No unsubscribed senders found' });
+    }
+
+    // Build Gmail search query
+    const senderEmails = [...new Set(senders.map(s => s.senderEmail).filter(e => e))];
+    const domains = [...new Set(senders.map(s => s.domain).filter(d => d))];
+    const domainsWithoutEmail = domains.filter(d => !senders.some(s => s.senderEmail && s.domain === d));
+
+    const fromParts = [
+      ...senderEmails,
+      ...domainsWithoutEmail.map(d => `*@${d}`),
+    ];
+
+    let query = `from:(${fromParts.join(' OR ')})`;
+    if (ignoreStarred) query += ' -is:starred';
+    if (ignoreImportant) query += ' -is:important';
+    query += ' -in:trash';
+
+    // Set up Gmail client
+    const oauth2Client = createOAuthClient();
+    oauth2Client.setCredentials(req.session.user.googleTokens);
+    oauth2Client.on('tokens', (tokens) => {
+      req.session.user.googleTokens = { ...req.session.user.googleTokens, ...tokens };
+    });
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    // Fetch up to 500 message IDs (one page only)
+    const listResponse = await gmail.users.messages.list({ userId: 'me', q: query, maxResults: 500 });
+    const messages = listResponse.data.messages || [];
+    const capped = messages.length === 500;
+
+    // Trash messages in parallel batches of 10
+    let trashed = 0;
+    for (let i = 0; i < messages.length; i += 10) {
+      const batch = messages.slice(i, i + 10);
+      await Promise.all(batch.map(msg => gmail.users.messages.trash({ userId: 'me', id: msg.id }).catch(e => {
+        console.error('Trash message error:', e.message);
+      })));
+      trashed += batch.length;
+    }
+
+    res.json({ trashed, capped });
+  } catch (err) {
+    console.error('Clean inbox error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Account deletion
+// ---------------------------------------------------------------------------
+app.delete('/api/account', requireAuth, requireCsrf, async (req, res) => {
+  try {
+    const userEmail = req.session.user.email;
+
+    // 1. Delete all analytics records
+    if (ddb && ANALYTICS_TABLE) {
+      try {
+        const { QueryCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
+        const { Items: analyticsItems = [] } = await ddb.send(new QueryCommand({
+          TableName: ANALYTICS_TABLE,
+          KeyConditionExpression: 'userEmail = :email',
+          ExpressionAttributeValues: { ':email': userEmail },
+        }));
+        for (let i = 0; i < analyticsItems.length; i += 25) {
+          const chunk = analyticsItems.slice(i, i + 25);
+          await ddb.send(new BatchWriteCommand({
+            RequestItems: {
+              [ANALYTICS_TABLE]: chunk.map(item => ({
+                DeleteRequest: { Key: { userEmail: item.userEmail, date: item.date } },
+              })),
+            },
+          }));
+        }
+      } catch (e) { console.error('Account delete — analytics error:', e.message); }
+    }
+
+    // 2. Delete all history records
+    if (ddb && HISTORY_TABLE) {
+      try {
+        const { QueryCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
+        const { Items: historyItems = [] } = await ddb.send(new QueryCommand({
+          TableName: HISTORY_TABLE,
+          KeyConditionExpression: 'userEmail = :email',
+          ExpressionAttributeValues: { ':email': userEmail },
+          ProjectionExpression: 'userEmail, #domain',
+          ExpressionAttributeNames: { '#domain': 'domain' },
+        }));
+        for (let i = 0; i < historyItems.length; i += 25) {
+          const chunk = historyItems.slice(i, i + 25);
+          await ddb.send(new BatchWriteCommand({
+            RequestItems: {
+              [HISTORY_TABLE]: chunk.map(item => ({
+                DeleteRequest: { Key: { userEmail: item.userEmail, domain: item.domain } },
+              })),
+            },
+          }));
+        }
+      } catch (e) { console.error('Account delete — history error:', e.message); }
+    }
+
+    // 3. Delete all sessions for this user
+    if (ddb && SESSIONS_TABLE) {
+      try {
+        const { ScanCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
+        const { Items: sessionItems = [] } = await ddb.send(new ScanCommand({
+          TableName: SESSIONS_TABLE,
+          FilterExpression: 'email = :email',
+          ExpressionAttributeValues: { ':email': userEmail },
+        }));
+        for (let i = 0; i < sessionItems.length; i += 25) {
+          const chunk = sessionItems.slice(i, i + 25);
+          await ddb.send(new BatchWriteCommand({
+            RequestItems: {
+              [SESSIONS_TABLE]: chunk.map(item => ({
+                DeleteRequest: { Key: { sessionId: item.sessionId } },
+              })),
+            },
+          }));
+        }
+      } catch (e) { console.error('Account delete — sessions error:', e.message); }
+    }
+
+    // 4. Delete from allowlist
+    try {
+      const { DeleteCommand } = require('@aws-sdk/lib-dynamodb');
+      if (ddb && ALLOWLIST_TABLE) {
+        await ddb.send(new DeleteCommand({ TableName: ALLOWLIST_TABLE, Key: { email: userEmail } }));
+      }
+    } catch (e) { console.error('Account delete — allowlist error:', e.message); }
+
+    // Destroy the current session
+    req.session.destroy(() => {});
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Account delete error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Admin API
 // ---------------------------------------------------------------------------
 app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
