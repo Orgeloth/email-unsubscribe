@@ -672,7 +672,7 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
 
       const listResponse = await gmail.users.messages.list({
         userId: 'me',
-        q: `has:list-unsubscribe after:${afterTimestamp}`,
+        q: `(unsubscribe OR "opt out" OR "opt-out") after:${afterTimestamp}`,
         maxResults: 500,
       });
 
@@ -687,11 +687,17 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
           const batch = messages.slice(i, i + 20);
           const details = await Promise.all(
             batch.map(msg =>
-              gmail.users.messages.get({ userId: 'me', id: msg.id, format: 'MINIMAL' }).catch(() => null)
+              gmail.users.messages.get({
+                userId: 'me', id: msg.id, format: 'METADATA',
+                metadataHeaders: ['List-Unsubscribe'],
+              }).catch(() => null)
             )
           );
           for (const d of details) {
             if (!d) continue;
+            const headers = d.data.payload?.headers || [];
+            const hasHeader = headers.some(h => h.name.toLowerCase() === 'list-unsubscribe' && h.value);
+            if (!hasHeader) continue;
             const dateStr = toDateStr(new Date(parseInt(d.data.internalDate)));
             if (dateStr in dateCounts) dateCounts[dateStr]++;
           }
