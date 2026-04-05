@@ -126,7 +126,30 @@ if (ddb && SESSIONS_TABLE) {
 }
 
 const app = express();
+app.disable('x-powered-by');
 if (isProd) app.set('trust proxy', 1);
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  // unsafe-inline required for inline theme-init script and onclick handlers;
+  // cdn.jsdelivr.net required for Chart.js; lh3.googleusercontent.com for Google avatars
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' https://lh3.googleusercontent.com data:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+  ].join('; '));
+  next();
+});
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({

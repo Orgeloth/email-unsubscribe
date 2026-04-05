@@ -141,19 +141,22 @@ jobs:
 
       - name: Mozilla Observatory — security headers check
         run: |
-          # Trigger a fresh scan
+          # v2 API: GET returns cached results; POST triggers a fresh scan
           curl -s -X POST \
-            "https://http-observatory.security.mozilla.org/api/v1/analyze?host=unsub.dorangroup.io&rescan=true" \
+            "https://observatory-api.mdn.mozilla.net/api/v2/analyze" \
+            -H "Content-Type: application/json" \
+            -d '{"host":"unsub.dorangroup.io"}' \
             > /dev/null
           # Wait for scan to complete
-          sleep 15
-          # Fetch and print results
+          sleep 20
+          # Fetch and print results (v2: grade is at .scan.grade)
           RESULT=$(curl -s \
-            "https://http-observatory.security.mozilla.org/api/v1/analyze?host=unsub.dorangroup.io")
-          echo "Grade: $(echo $RESULT | jq -r '.grade')"
-          echo "Score: $(echo $RESULT | jq -r '.score')"
+            "https://observatory-api.mdn.mozilla.net/api/v2/analyze?host=unsub.dorangroup.io")
+          GRADE=$(echo "$RESULT" | jq -r '.scan.grade')
+          SCORE=$(echo "$RESULT" | jq -r '.scan.score')
+          echo "Grade: $GRADE"
+          echo "Score: $SCORE"
           # Fail if grade is D or F
-          GRADE=$(echo $RESULT | jq -r '.grade')
           if [[ "$GRADE" == D* ]] || [[ "$GRADE" == F* ]]; then
             echo "Observatory grade $GRADE is below acceptable threshold"
             exit 1
