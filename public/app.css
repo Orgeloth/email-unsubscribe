@@ -270,3 +270,40 @@ input::placeholder { color: var(--text-3); }
 
 /* ─── Theme init (no FOUC) ────────────────────────────────────────────────── */
 /* Applied via inline <script> before first paint — see each page */
+
+/* ─── Mobile responsive ───────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Header: hide title text and user name, shrink padding */
+  .app-header { padding: 0 12px; }
+  .app-header h1 { display: none; }
+  .header-right { gap: 4px; }
+
+  /* Keep avatar, hide the name text beside it */
+  .user-info span { display: none; }
+
+  /* Tighter Admin/Help links */
+  .admin-link {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+
+  /* Table: horizontal scroll instead of overflow:hidden */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Toast: span the full bottom rather than pinning to the right edge */
+  .toast {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    text-align: center;
+  }
+
+  /* Touch targets: lift btn-sm to 44px-ish minimum height */
+  .btn-sm {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+}

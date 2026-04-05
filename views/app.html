@@ -264,6 +264,26 @@
       color: var(--text-3); font-size: 13.5px;
     }
     .analytics-loading .spinner { margin: 0 auto 12px; }
+
+    /* ── Mobile overrides ─────────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      main { padding: 0 12px; margin-top: 16px; }
+
+      /* Controls: let items wrap naturally; search takes full width */
+      .controls { gap: 6px; }
+      .search-wrap { max-width: 100%; flex: 1 1 100%; order: 10; }
+      .results-meta { order: 11; width: 100%; text-align: right; }
+
+      /* Bigger tap targets for range/period buttons */
+      .range-btn { padding: 10px 13px; font-size: 13px; }
+      .unsub-btn { padding: 9px 14px; font-size: 13px; }
+
+      /* Slightly shorter chart on small screens */
+      .analytics-chart-wrap { height: 220px; }
+
+      /* Subject column: allow it to truncate more aggressively */
+      .subject-cell { max-width: 140px; }
+    }
   </style>
 </head>
 <body>
