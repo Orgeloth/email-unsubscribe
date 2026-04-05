@@ -110,6 +110,7 @@ export class EmailUnsubscribeStack extends cdk.Stack {
         command: [
           'sh', '-c',
           [
+            'apk upgrade --no-cache zlib',  // patch CVE-2026-27171
             'cp -r /asset-input/server.js /asset-input/public /asset-input/views /asset-input/package*.json /asset-output/',
             'cd /asset-output',
             'npm ci --only=production --silent',
