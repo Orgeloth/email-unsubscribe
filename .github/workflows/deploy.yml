@@ -141,17 +141,33 @@ jobs:
 
       - name: Mozilla Observatory — security headers check
         run: |
-          # v2 API: GET returns cached results; POST triggers a fresh scan
+          # v2 API: POST triggers a fresh scan; record the time before we fire it
+          BEFORE=$(date -u +%s)
           curl -s -X POST \
             "https://observatory-api.mdn.mozilla.net/api/v2/analyze" \
             -H "Content-Type: application/json" \
             -d '{"host":"unsub.dorangroup.io"}' \
             > /dev/null
-          # Wait for scan to complete
-          sleep 20
+
+          # Poll until the scan result is newer than our BEFORE timestamp
+          # (prevents acting on a stale cached result from a previous run)
+          echo "Waiting for Observatory to return a fresh scan..."
+          for i in $(seq 1 24); do
+            sleep 5
+            RESULT=$(curl -s \
+              "https://observatory-api.mdn.mozilla.net/api/v2/analyze?host=unsub.dorangroup.io")
+            SCANNED_AT=$(echo "$RESULT" | jq -r '.scan.scanned_at // empty')
+            if [[ -n "$SCANNED_AT" ]]; then
+              SCAN_TS=$(date -u -d "$SCANNED_AT" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "${SCANNED_AT%%.*}" +%s 2>/dev/null || echo 0)
+              if [[ "$SCAN_TS" -gt "$BEFORE" ]]; then
+                echo "Fresh scan detected (scanned_at: $SCANNED_AT)"
+                break
+              fi
+            fi
+            echo "Attempt $i/24: scan not fresh yet (scanned_at: ${SCANNED_AT:-unknown}), retrying..."
+          done
+
           # Fetch and print results (v2: grade is at .scan.grade)
-          RESULT=$(curl -s \
-            "https://observatory-api.mdn.mozilla.net/api/v2/analyze?host=unsub.dorangroup.io")
           GRADE=$(echo "$RESULT" | jq -r '.scan.grade')
           SCORE=$(echo "$RESULT" | jq -r '.scan.score')
           echo "Grade: $GRADE"
