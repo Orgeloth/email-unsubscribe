@@ -64,32 +64,36 @@ class DynamoDBStore extends session.Store {
   }
 
   set(sid, sessionData, callback) {
-    const { PutCommand } = require('@aws-sdk/lib-dynamodb');
-    const maxAge = sessionData.cookie?.maxAge || 86400000;
-    const expiresAt = Math.floor(Date.now() / 1000) + Math.floor(maxAge / 1000);
+    try {
+      const { PutCommand } = require('@aws-sdk/lib-dynamodb');
+      const maxAge = sessionData.cookie?.maxAge || 86400000;
+      const expiresAt = Math.floor(Date.now() / 1000) + Math.floor(maxAge / 1000);
 
-    // Strip tokens from the session blob and store them encrypted in a separate field.
-    const dataToStore = { ...sessionData };
-    let encryptedTokens = null;
-    if (dataToStore.user?.googleTokens) {
-      encryptedTokens = encryptTokens(dataToStore.user.googleTokens);
-      dataToStore.user = { ...dataToStore.user };
-      delete dataToStore.user.googleTokens;
+      // Strip tokens from the session blob and store them encrypted in a separate field.
+      const dataToStore = { ...sessionData };
+      let encryptedTokens = null;
+      if (dataToStore.user?.googleTokens) {
+        encryptedTokens = encryptTokens(dataToStore.user.googleTokens);
+        dataToStore.user = { ...dataToStore.user };
+        delete dataToStore.user.googleTokens;
+      }
+
+      this.ddb.send(new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          sessionId: sid,
+          data: JSON.stringify(dataToStore),
+          encryptedTokens,
+          email: sessionData.user?.email || null,
+          expiresAt,
+          createdAt: sessionData._createdAt || Math.floor(Date.now() / 1000),
+        },
+      }))
+        .then(() => callback(null))
+        .catch(callback);
+    } catch (err) {
+      callback(err);
     }
-
-    this.ddb.send(new PutCommand({
-      TableName: this.tableName,
-      Item: {
-        sessionId: sid,
-        data: JSON.stringify(dataToStore),
-        encryptedTokens,
-        email: sessionData.user?.email || null,
-        expiresAt,
-        createdAt: sessionData._createdAt || Math.floor(Date.now() / 1000),
-      },
-    }))
-      .then(() => callback(null))
-      .catch(callback);
   }
 
   destroy(sid, callback) {
@@ -590,13 +594,36 @@ app.get('/api/emails', requireAuth, async (req, res) => {
     const messages = listResponse.data.messages || [];
     if (!messages.length) return res.json({ emails: [] });
 
+    // First pass: fetch metadata only (headers, no body/attachments)
+    const metadataHeaderNames = ['From', 'Subject', 'List-Unsubscribe', 'List-Unsubscribe-Post'];
     const results = [];
     for (let i = 0; i < messages.length; i += 20) {
       const batch = messages.slice(i, i + 20);
       const details = await Promise.all(batch.map(msg =>
-        gmail.users.messages.get({ userId: 'me', id: msg.id, format: 'full' }).catch(() => null)
+        gmail.users.messages.get({
+          userId: 'me', id: msg.id,
+          format: 'METADATA',
+          metadataHeaders: metadataHeaderNames,
+        }).catch(() => null)
       ));
       results.push(...details.filter(Boolean));
+    }
+
+    // Second pass: for messages with no List-Unsubscribe header, fetch full format
+    // so we can scan the body for inline unsubscribe links
+    const noHeaderIds = results
+      .filter(d => !d.data.payload.headers.some(
+        h => h.name.toLowerCase() === 'list-unsubscribe'
+      ))
+      .map(d => d.data.id);
+
+    const fullFetched = new Map();
+    for (let i = 0; i < noHeaderIds.length; i += 20) {
+      const batch = noHeaderIds.slice(i, i + 20);
+      const details = await Promise.all(batch.map(id =>
+        gmail.users.messages.get({ userId: 'me', id, format: 'full' }).catch(() => null)
+      ));
+      for (const d of details.filter(Boolean)) fullFetched.set(d.data.id, d);
     }
 
     const emails = [];
@@ -612,7 +639,10 @@ app.get('/api/emails', requireAuth, async (req, res) => {
       const domain = senderEmail.includes('@') ? senderEmail.split('@')[1] : '';
 
       let unsubscribeUrl = parseListUnsubscribe(getHeader('List-Unsubscribe'));
-      if (!unsubscribeUrl) unsubscribeUrl = findUnsubscribeInBody(payload);
+      if (!unsubscribeUrl) {
+        const fullData = fullFetched.get(msgData.data.id);
+        if (fullData) unsubscribeUrl = findUnsubscribeInBody(fullData.data.payload);
+      }
       if (!unsubscribeUrl) continue;
 
       const key = `${senderEmail}|${unsubscribeUrl}`;
@@ -943,71 +973,86 @@ app.delete('/api/account', requireAuth, requireCsrf, async (req, res) => {
   try {
     const userEmail = req.session.user.email;
 
-    // 1. Delete all analytics records
+    // 1. Delete all analytics records (paginated)
     if (ddb && ANALYTICS_TABLE) {
       try {
         const { QueryCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
-        const { Items: analyticsItems = [] } = await ddb.send(new QueryCommand({
-          TableName: ANALYTICS_TABLE,
-          KeyConditionExpression: 'userEmail = :email',
-          ExpressionAttributeValues: { ':email': userEmail },
-        }));
-        for (let i = 0; i < analyticsItems.length; i += 25) {
-          const chunk = analyticsItems.slice(i, i + 25);
-          await ddb.send(new BatchWriteCommand({
-            RequestItems: {
-              [ANALYTICS_TABLE]: chunk.map(item => ({
-                DeleteRequest: { Key: { userEmail: item.userEmail, date: item.date } },
-              })),
-            },
+        let lastKey;
+        do {
+          const { Items: analyticsItems = [], LastEvaluatedKey } = await ddb.send(new QueryCommand({
+            TableName: ANALYTICS_TABLE,
+            KeyConditionExpression: 'userEmail = :email',
+            ExpressionAttributeValues: { ':email': userEmail },
+            ExclusiveStartKey: lastKey,
           }));
-        }
+          lastKey = LastEvaluatedKey;
+          for (let i = 0; i < analyticsItems.length; i += 25) {
+            const chunk = analyticsItems.slice(i, i + 25);
+            await ddb.send(new BatchWriteCommand({
+              RequestItems: {
+                [ANALYTICS_TABLE]: chunk.map(item => ({
+                  DeleteRequest: { Key: { userEmail: item.userEmail, date: item.date } },
+                })),
+              },
+            }));
+          }
+        } while (lastKey);
       } catch (e) { console.error('Account delete — analytics error:', e.message); }
     }
 
-    // 2. Delete all history records
+    // 2. Delete all history records (paginated)
     if (ddb && HISTORY_TABLE) {
       try {
         const { QueryCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
-        const { Items: historyItems = [] } = await ddb.send(new QueryCommand({
-          TableName: HISTORY_TABLE,
-          KeyConditionExpression: 'userEmail = :email',
-          ExpressionAttributeValues: { ':email': userEmail },
-          ProjectionExpression: 'userEmail, #domain',
-          ExpressionAttributeNames: { '#domain': 'domain' },
-        }));
-        for (let i = 0; i < historyItems.length; i += 25) {
-          const chunk = historyItems.slice(i, i + 25);
-          await ddb.send(new BatchWriteCommand({
-            RequestItems: {
-              [HISTORY_TABLE]: chunk.map(item => ({
-                DeleteRequest: { Key: { userEmail: item.userEmail, domain: item.domain } },
-              })),
-            },
+        let lastKey;
+        do {
+          const { Items: historyItems = [], LastEvaluatedKey } = await ddb.send(new QueryCommand({
+            TableName: HISTORY_TABLE,
+            KeyConditionExpression: 'userEmail = :email',
+            ExpressionAttributeValues: { ':email': userEmail },
+            ProjectionExpression: 'userEmail, #domain',
+            ExpressionAttributeNames: { '#domain': 'domain' },
+            ExclusiveStartKey: lastKey,
           }));
-        }
+          lastKey = LastEvaluatedKey;
+          for (let i = 0; i < historyItems.length; i += 25) {
+            const chunk = historyItems.slice(i, i + 25);
+            await ddb.send(new BatchWriteCommand({
+              RequestItems: {
+                [HISTORY_TABLE]: chunk.map(item => ({
+                  DeleteRequest: { Key: { userEmail: item.userEmail, domain: item.domain } },
+                })),
+              },
+            }));
+          }
+        } while (lastKey);
       } catch (e) { console.error('Account delete — history error:', e.message); }
     }
 
-    // 3. Delete all sessions for this user
+    // 3. Delete all sessions for this user (paginated scan)
     if (ddb && SESSIONS_TABLE) {
       try {
         const { ScanCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
-        const { Items: sessionItems = [] } = await ddb.send(new ScanCommand({
-          TableName: SESSIONS_TABLE,
-          FilterExpression: 'email = :email',
-          ExpressionAttributeValues: { ':email': userEmail },
-        }));
-        for (let i = 0; i < sessionItems.length; i += 25) {
-          const chunk = sessionItems.slice(i, i + 25);
-          await ddb.send(new BatchWriteCommand({
-            RequestItems: {
-              [SESSIONS_TABLE]: chunk.map(item => ({
-                DeleteRequest: { Key: { sessionId: item.sessionId } },
-              })),
-            },
+        let lastKey;
+        do {
+          const { Items: sessionItems = [], LastEvaluatedKey } = await ddb.send(new ScanCommand({
+            TableName: SESSIONS_TABLE,
+            FilterExpression: 'email = :email',
+            ExpressionAttributeValues: { ':email': userEmail },
+            ExclusiveStartKey: lastKey,
           }));
-        }
+          lastKey = LastEvaluatedKey;
+          for (let i = 0; i < sessionItems.length; i += 25) {
+            const chunk = sessionItems.slice(i, i + 25);
+            await ddb.send(new BatchWriteCommand({
+              RequestItems: {
+                [SESSIONS_TABLE]: chunk.map(item => ({
+                  DeleteRequest: { Key: { sessionId: item.sessionId } },
+                })),
+              },
+            }));
+          }
+        } while (lastKey);
       } catch (e) { console.error('Account delete — sessions error:', e.message); }
     }
 
