@@ -4,6 +4,10 @@ const session = require('express-session');
 const { google } = require('googleapis');
 const path = require('path');
 const serverless = require('serverless-http');
+const {
+  GetCommand, PutCommand, UpdateCommand, DeleteCommand,
+  QueryCommand, ScanCommand, BatchWriteCommand, BatchGetCommand,
+} = require('@aws-sdk/lib-dynamodb');
 
 const isProd = process.env.NODE_ENV === 'production';
 const PORT = process.env.PORT || 3000;
@@ -42,7 +46,6 @@ class DynamoDBStore extends session.Store {
   }
 
   get(sid, callback) {
-    const { GetCommand } = require('@aws-sdk/lib-dynamodb');
     this.ddb.send(new GetCommand({ TableName: this.tableName, Key: { sessionId: sid } }))
       .then(({ Item }) => {
         if (!Item) return callback(null, null);
@@ -65,7 +68,6 @@ class DynamoDBStore extends session.Store {
 
   set(sid, sessionData, callback) {
     try {
-      const { PutCommand } = require('@aws-sdk/lib-dynamodb');
       const maxAge = sessionData.cookie?.maxAge || 86400000;
       const expiresAt = Math.floor(Date.now() / 1000) + Math.floor(maxAge / 1000);
 
@@ -97,14 +99,12 @@ class DynamoDBStore extends session.Store {
   }
 
   destroy(sid, callback) {
-    const { DeleteCommand } = require('@aws-sdk/lib-dynamodb');
     this.ddb.send(new DeleteCommand({ TableName: this.tableName, Key: { sessionId: sid } }))
       .then(() => callback(null))
       .catch(callback);
   }
 
   touch(sid, sessionData, callback) {
-    const { UpdateCommand } = require('@aws-sdk/lib-dynamodb');
     const maxAge = sessionData.cookie?.maxAge || 86400000;
     const expiresAt = Math.floor(Date.now() / 1000) + Math.floor(maxAge / 1000);
     this.ddb.send(new UpdateCommand({
@@ -239,14 +239,12 @@ function requireAdmin(req, res, next) {
 // ---------------------------------------------------------------------------
 async function getAllowlistEntry(email) {
   if (!ddb || !ALLOWLIST_TABLE) return { status: 'active', isAdmin: false }; // local dev bypass
-  const { GetCommand } = require('@aws-sdk/lib-dynamodb');
   const { Item } = await ddb.send(new GetCommand({ TableName: ALLOWLIST_TABLE, Key: { email } }));
   return Item || null;
 }
 
 async function upsertAllowlistEntry(email, updates) {
   if (!ddb || !ALLOWLIST_TABLE) return;
-  const { UpdateCommand } = require('@aws-sdk/lib-dynamodb');
   const keys = Object.keys(updates);
   const expr = keys.map(k => `#${k} = :${k}`).join(', ');
   const names = Object.fromEntries(keys.map(k => [`#${k}`, k]));
@@ -262,19 +260,16 @@ async function upsertAllowlistEntry(email, updates) {
 
 async function putAllowlistEntry(entry) {
   if (!ddb || !ALLOWLIST_TABLE) return;
-  const { PutCommand } = require('@aws-sdk/lib-dynamodb');
   await ddb.send(new PutCommand({ TableName: ALLOWLIST_TABLE, Item: entry }));
 }
 
 async function deleteAllowlistEntry(email) {
   if (!ddb || !ALLOWLIST_TABLE) return;
-  const { DeleteCommand } = require('@aws-sdk/lib-dynamodb');
   await ddb.send(new DeleteCommand({ TableName: ALLOWLIST_TABLE, Key: { email } }));
 }
 
 async function getAllAllowlistEntries() {
   if (!ddb || !ALLOWLIST_TABLE) return [];
-  const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
   const { Items = [] } = await ddb.send(new ScanCommand({ TableName: ALLOWLIST_TABLE }));
   return Items.sort((a, b) => (a.addedAt || '').localeCompare(b.addedAt || ''));
 }
@@ -283,6 +278,11 @@ async function getAllAllowlistEntries() {
 // Unsubscribe history helpers
 // ---------------------------------------------------------------------------
 const localHistory = new Map(); // local dev fallback: key = `${userEmail}#${domain}`
+
+// Cache for getUnsubscribedDomains — avoids a DynamoDB round-trip on every email fetch.
+// TTL: 5 minutes. Invalidated immediately when the user unsubscribes.
+const unsubDomainsCache = new Map(); // key: email → { domains: Set, expiresAt: number }
+const UNSUB_CACHE_TTL_MS = 5 * 60 * 1000;
 
 async function logUnsubscribe(userEmail, domain, senderEmail, unsubscribeUrl) {
   if (!ddb || !HISTORY_TABLE) {
@@ -295,7 +295,8 @@ async function logUnsubscribe(userEmail, domain, senderEmail, unsubscribeUrl) {
     });
     return;
   }
-  const { UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+  // Invalidate cache so the next email fetch reflects the new unsubscribe
+  unsubDomainsCache.delete(userEmail);
   await ddb.send(new UpdateCommand({
     TableName: HISTORY_TABLE,
     Key: { userEmail, domain },
@@ -319,7 +320,9 @@ async function getUnsubscribedDomains(userEmail) {
     }
     return domains;
   }
-  const { QueryCommand } = require('@aws-sdk/lib-dynamodb');
+  const cached = unsubDomainsCache.get(userEmail);
+  if (cached && cached.expiresAt > Date.now()) return cached.domains;
+
   const { Items = [] } = await ddb.send(new QueryCommand({
     TableName: HISTORY_TABLE,
     KeyConditionExpression: 'userEmail = :email',
@@ -327,7 +330,9 @@ async function getUnsubscribedDomains(userEmail) {
     ProjectionExpression: '#domain',
     ExpressionAttributeNames: { '#domain': 'domain' },
   }));
-  return new Set(Items.map(i => i.domain));
+  const domains = new Set(Items.map(i => i.domain));
+  unsubDomainsCache.set(userEmail, { domains, expiresAt: Date.now() + UNSUB_CACHE_TTL_MS });
+  return domains;
 }
 
 async function getAllHistory() {
@@ -336,7 +341,6 @@ async function getAllHistory() {
       .sort((a, b) => (b.unsubscribedAt || '').localeCompare(a.unsubscribedAt || ''))
       .map(({ userEmail, unsubscribedAt, count }) => ({ userEmail, unsubscribedAt, count }));
   }
-  const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
   const { Items = [] } = await ddb.send(new ScanCommand({
     TableName: HISTORY_TABLE,
     ProjectionExpression: 'userEmail, unsubscribedAt, #cnt',
@@ -347,7 +351,6 @@ async function getAllHistory() {
 
 async function getActiveSessions() {
   if (!ddb || !SESSIONS_TABLE) return [];
-  const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
   const now = Math.floor(Date.now() / 1000);
   const { Items = [] } = await ddb.send(new ScanCommand({ TableName: SESSIONS_TABLE }));
   return Items
@@ -366,7 +369,6 @@ async function getActiveSessions() {
 // ---------------------------------------------------------------------------
 async function getStoredAnalytics(userEmail, dates) {
   if (!ddb || !ANALYTICS_TABLE || !dates.length) return {};
-  const { BatchGetCommand } = require('@aws-sdk/lib-dynamodb');
   const keys = dates.map(date => ({ userEmail, date }));
   const { Responses } = await ddb.send(new BatchGetCommand({
     RequestItems: { [ANALYTICS_TABLE]: { Keys: keys } },
@@ -377,7 +379,6 @@ async function getStoredAnalytics(userEmail, dates) {
 
 async function storeAnalyticsCounts(userEmail, dateCounts) {
   if (!ddb || !ANALYTICS_TABLE) return;
-  const { BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
   const expiresAt = Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60;
   const entries = Object.entries(dateCounts);
   for (let i = 0; i < entries.length; i += 25) {
@@ -589,7 +590,7 @@ app.get('/api/emails', requireAuth, async (req, res) => {
       userId: 'me',
       q: `after:${afterTimestamp} (unsubscribe OR "opt out" OR "opt-out")`,
       maxResults: 200,
-    });
+    }, { timeout: 15000 });
 
     const messages = listResponse.data.messages || [];
     if (!messages.length) return res.json({ emails: [] });
@@ -604,7 +605,7 @@ app.get('/api/emails', requireAuth, async (req, res) => {
           userId: 'me', id: msg.id,
           format: 'METADATA',
           metadataHeaders: metadataHeaderNames,
-        }).catch(() => null)
+        }, { timeout: 15000 }).catch(() => null)
       ));
       results.push(...details.filter(Boolean));
     }
@@ -621,7 +622,7 @@ app.get('/api/emails', requireAuth, async (req, res) => {
     for (let i = 0; i < noHeaderIds.length; i += 20) {
       const batch = noHeaderIds.slice(i, i + 20);
       const details = await Promise.all(batch.map(id =>
-        gmail.users.messages.get({ userId: 'me', id, format: 'full' }).catch(() => null)
+        gmail.users.messages.get({ userId: 'me', id, format: 'full' }, { timeout: 15000 }).catch(() => null)
       ));
       for (const d of details.filter(Boolean)) fullFetched.set(d.data.id, d);
     }
@@ -729,7 +730,7 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
         userId: 'me',
         q: `(unsubscribe OR "opt out" OR "opt-out") after:${afterTimestamp}`,
         maxResults: 500,
-      });
+      }, { timeout: 15000 });
 
       capped = !!(listResponse.data.nextPageToken);
       const messages = listResponse.data.messages || [];
@@ -745,7 +746,7 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
               gmail.users.messages.get({
                 userId: 'me', id: msg.id, format: 'METADATA',
                 metadataHeaders: ['List-Unsubscribe'],
-              }).catch(() => null)
+              }, { timeout: 15000 }).catch(() => null)
             )
           );
           for (const d of details) {
@@ -818,6 +819,7 @@ app.post('/api/one-click-unsubscribe', requireAuth, requireCsrf, async (req, res
       const mod = parsed.protocol === 'https:' ? require('https') : require('http');
       const reqOut = mod.request(unsubscribeUrl, {
         method: 'POST',
+        signal: AbortSignal.timeout(10000), // covers DNS + connect + idle, not just socket idle
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Content-Length': Buffer.byteLength(postBody),
@@ -829,7 +831,6 @@ app.post('/api/one-click-unsubscribe', requireAuth, requireCsrf, async (req, res
         resolve(r.statusCode);
       });
       reqOut.on('error', reject);
-      reqOut.setTimeout(10000, () => { reqOut.destroy(new Error('Request timed out')); });
       reqOut.write(postBody);
       reqOut.end();
     });
@@ -849,7 +850,6 @@ app.get('/api/user-settings', requireAuth, async (req, res) => {
   try {
     const userEmail = req.session.user.email;
     if (!ddb || !ALLOWLIST_TABLE) return res.json({});
-    const { GetCommand } = require('@aws-sdk/lib-dynamodb');
     const { Item } = await ddb.send(new GetCommand({ TableName: ALLOWLIST_TABLE, Key: { email: userEmail } }));
     res.json(Item?.settings || {});
   } catch (err) {
@@ -859,13 +859,23 @@ app.get('/api/user-settings', requireAuth, async (req, res) => {
 });
 
 app.post('/api/user-settings', requireAuth, requireCsrf, async (req, res) => {
+  // Validate: only accept known boolean keys, reject anything else
+  const ALLOWED_SETTINGS = new Set(['darkMode', 'suppressCleanConfirmation']);
+  const unknown = Object.keys(req.body).filter(k => !ALLOWED_SETTINGS.has(k));
+  if (unknown.length) {
+    return res.status(400).json({ error: `Unknown setting key(s): ${unknown.join(', ')}` });
+  }
+  const sanitized = {};
+  for (const key of ALLOWED_SETTINGS) {
+    if (key in req.body) sanitized[key] = !!req.body[key];
+  }
+
   try {
     const userEmail = req.session.user.email;
-    if (!ddb || !ALLOWLIST_TABLE) return res.json({ ok: true, settings: req.body });
-    const { GetCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+    if (!ddb || !ALLOWLIST_TABLE) return res.json({ ok: true, settings: sanitized });
     const { Item } = await ddb.send(new GetCommand({ TableName: ALLOWLIST_TABLE, Key: { email: userEmail } }));
     const existing = Item?.settings || {};
-    const merged = { ...existing, ...req.body };
+    const merged = { ...existing, ...sanitized };
     await ddb.send(new UpdateCommand({
       TableName: ALLOWLIST_TABLE,
       Key: { email: userEmail },
@@ -886,7 +896,6 @@ app.get('/api/clean-inbox/senders', requireAuth, async (req, res) => {
   try {
     const userEmail = req.session.user.email;
     if (!ddb || !HISTORY_TABLE) return res.json({ senders: [] });
-    const { QueryCommand } = require('@aws-sdk/lib-dynamodb');
     const { Items = [] } = await ddb.send(new QueryCommand({
       TableName: HISTORY_TABLE,
       KeyConditionExpression: 'userEmail = :email',
@@ -908,7 +917,6 @@ app.post('/api/clean-inbox', requireAuth, requireCsrf, async (req, res) => {
     // Get unsubscribed senders from history table
     let senders = [];
     if (ddb && HISTORY_TABLE) {
-      const { QueryCommand } = require('@aws-sdk/lib-dynamodb');
       const { Items = [] } = await ddb.send(new QueryCommand({
         TableName: HISTORY_TABLE,
         KeyConditionExpression: 'userEmail = :email',
@@ -945,7 +953,7 @@ app.post('/api/clean-inbox', requireAuth, requireCsrf, async (req, res) => {
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
     // Fetch up to 500 message IDs (one page only)
-    const listResponse = await gmail.users.messages.list({ userId: 'me', q: query, maxResults: 500 });
+    const listResponse = await gmail.users.messages.list({ userId: 'me', q: query, maxResults: 500 }, { timeout: 15000 });
     const messages = listResponse.data.messages || [];
     const capped = messages.length === 500;
 
@@ -953,7 +961,7 @@ app.post('/api/clean-inbox', requireAuth, requireCsrf, async (req, res) => {
     let trashed = 0;
     for (let i = 0; i < messages.length; i += 10) {
       const batch = messages.slice(i, i + 10);
-      await Promise.all(batch.map(msg => gmail.users.messages.trash({ userId: 'me', id: msg.id }).catch(e => {
+      await Promise.all(batch.map(msg => gmail.users.messages.trash({ userId: 'me', id: msg.id }, { timeout: 15000 }).catch(e => {
         console.error('Trash message error:', e.message);
       })));
       trashed += batch.length;
@@ -976,7 +984,6 @@ app.delete('/api/account', requireAuth, requireCsrf, async (req, res) => {
     // 1. Delete all analytics records (paginated)
     if (ddb && ANALYTICS_TABLE) {
       try {
-        const { QueryCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
         let lastKey;
         do {
           const { Items: analyticsItems = [], LastEvaluatedKey } = await ddb.send(new QueryCommand({
@@ -1003,7 +1010,6 @@ app.delete('/api/account', requireAuth, requireCsrf, async (req, res) => {
     // 2. Delete all history records (paginated)
     if (ddb && HISTORY_TABLE) {
       try {
-        const { QueryCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
         let lastKey;
         do {
           const { Items: historyItems = [], LastEvaluatedKey } = await ddb.send(new QueryCommand({
@@ -1032,7 +1038,6 @@ app.delete('/api/account', requireAuth, requireCsrf, async (req, res) => {
     // 3. Delete all sessions for this user (paginated scan)
     if (ddb && SESSIONS_TABLE) {
       try {
-        const { ScanCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
         let lastKey;
         do {
           const { Items: sessionItems = [], LastEvaluatedKey } = await ddb.send(new ScanCommand({
@@ -1058,7 +1063,6 @@ app.delete('/api/account', requireAuth, requireCsrf, async (req, res) => {
 
     // 4. Delete from allowlist
     try {
-      const { DeleteCommand } = require('@aws-sdk/lib-dynamodb');
       if (ddb && ALLOWLIST_TABLE) {
         await ddb.send(new DeleteCommand({ TableName: ALLOWLIST_TABLE, Key: { email: userEmail } }));
       }

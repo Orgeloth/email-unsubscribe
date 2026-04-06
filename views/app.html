@@ -657,9 +657,13 @@
     }
 
     // ── Search / filter ───────────────────────────────────────────────────────
+    let searchDebounceTimer = null;
     function onSearch() {
-      searchQuery = document.getElementById('search-input').value;
-      if (allEmails.length) applyFilters();
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        searchQuery = document.getElementById('search-input').value;
+        if (allEmails.length) applyFilters();
+      }, 250);
     }
 
     function applyFilters() {
@@ -1102,6 +1106,7 @@
     let analyticsLoaded = false;
     let analyticsPeriod = 'week';
     let analyticsChart = null;
+    let analyticsAbortController = null;
 
     function setAnalyticsPeriod(period) {
       analyticsPeriod = period;
@@ -1112,6 +1117,11 @@
     }
 
     async function fetchAnalytics() {
+      // Abort any in-flight analytics request before starting a new one
+      if (analyticsAbortController) analyticsAbortController.abort();
+      analyticsAbortController = new AbortController();
+      const signal = analyticsAbortController.signal;
+
       const loading  = document.getElementById('analytics-loading');
       const chartWrap = document.getElementById('analytics-chart-wrap');
       const trendEl  = document.getElementById('analytics-trend');
@@ -1123,7 +1133,7 @@
       capWarn.style.display   = 'none';
 
       try {
-        const res = await fetch(`/api/analytics?period=${analyticsPeriod}`);
+        const res = await fetch(`/api/analytics?period=${analyticsPeriod}`, { signal });
         const data = await res.json();
         if (!res.ok) {
           if (res.status === 401) return window.location.href = '/';
@@ -1140,6 +1150,7 @@
         renderTrend(data);
         analyticsLoaded = true;
       } catch (e) {
+        if (e.name === 'AbortError') return; // superseded by a newer request — ignore silently
         loading.innerHTML = `<p style="color:var(--danger)">${esc(e.message)}</p>`;
       }
     }
