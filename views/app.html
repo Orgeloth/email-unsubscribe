@@ -1236,8 +1236,6 @@
       // Sync toggles to current state before opening
       document.getElementById('setting-dark-mode').checked =
         document.documentElement.classList.contains('dark');
-      document.getElementById('setting-suppress-confirm').checked =
-        !!userSettings.suppressCleanConfirmation;
       document.getElementById('settings-overlay').style.display = '';
       requestAnimationFrame(() =>
         document.getElementById('settings-drawer').classList.add('open')
@@ -1257,10 +1255,6 @@
       toggleDark();
       document.getElementById('setting-dark-mode').checked =
         document.documentElement.classList.contains('dark');
-    }
-
-    function settingToggleSuppress(checked) {
-      saveSetting('suppressCleanConfirmation', checked);
     }
 
     function showDeleteConfirm() {
@@ -1331,21 +1325,6 @@
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="setting-dark-mode" onchange="settingToggleDark()">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-      </div>
-
-      <!-- Inbox Clean -->
-      <div class="settings-section">
-        <div class="settings-section-title">Inbox Clean</div>
-        <div class="settings-row">
-          <div>
-            <div class="settings-row-label">Skip confirmation</div>
-            <div class="settings-row-sub">Don't ask before cleaning your inbox</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="setting-suppress-confirm" onchange="settingToggleSuppress(this.checked)">
             <span class="toggle-track"></span>
           </label>
         </div>
