@@ -399,7 +399,7 @@ async function getStoredAnalytics(userEmail, dates) {
     RequestItems: { [ANALYTICS_TABLE]: { Keys: keys } },
   }));
   const items = Responses?.[ANALYTICS_TABLE] || [];
-  return Object.fromEntries(items.map(i => [i.date, i.count]));
+  return Object.fromEntries(items.map(i => [i.date, { count: i.count, fetchedAt: i.fetchedAt }]));
 }
 
 async function storeAnalyticsCounts(userEmail, dateCounts) {
@@ -765,8 +765,16 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
     // Read whatever is already stored
     const stored = await getStoredAnalytics(userEmail, allDates);
 
-    // Determine which dates need a Gmail fetch: today always re-fetches, others only if missing
-    const toFetch = allDates.filter(d => d === todayStr || !(d in stored));
+    // Determine which dates need a Gmail fetch.
+    // Historical dates: only fetch if not yet stored.
+    // Today: re-fetch only if stale (older than 5 minutes).
+    const ANALYTICS_CACHE_TTL_MS = 5 * 60 * 1000;
+    const toFetch = allDates.filter(d => {
+      if (d !== todayStr) return !(d in stored);
+      const rec = stored[d];
+      const fetchedAt = rec ? new Date(rec.fetchedAt).getTime() : NaN;
+      return !Number.isFinite(fetchedAt) || Date.now() - fetchedAt > ANALYTICS_CACHE_TTL_MS;
+    });
 
     let capped = false;
     if (toFetch.length > 0) {
@@ -816,12 +824,15 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
       }
 
       await storeAnalyticsCounts(userEmail, dateCounts);
-      Object.assign(stored, dateCounts);
+      const now = new Date().toISOString();
+      Object.assign(stored, Object.fromEntries(
+        Object.entries(dateCounts).map(([d, count]) => [d, { count, fetchedAt: now }])
+      ));
     }
 
-    const counts = labels.map(d => stored[d] || 0);
+    const counts = labels.map(d => stored[d]?.count || 0);
     const total = counts.reduce((a, b) => a + b, 0);
-    const previousTotal = prevLabels.reduce((sum, d) => sum + (stored[d] || 0), 0);
+    const previousTotal = prevLabels.reduce((sum, d) => sum + (stored[d]?.count || 0), 0);
 
     res.json({ labels, counts, total, previousTotal, capped });
   } catch (err) {
