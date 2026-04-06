@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const dns = require('dns').promises;
+const fs = require('fs');
 const { google } = require('googleapis');
 const path = require('path');
 const serverless = require('serverless-http');
@@ -134,18 +135,28 @@ const app = express();
 app.disable('x-powered-by');
 if (isProd) app.set('trust proxy', 1);
 
-// Security headers
+// Cache app.html at startup for nonce injection. The file is read once and
+// held in memory; the only per-request substitution is the CSP nonce token.
+const appHtmlTemplate = fs.readFileSync(
+  path.join(__dirname, 'views', 'app.html'), 'utf8'
+);
+
+// Security headers + per-request CSP nonce
 app.use((req, res, next) => {
-  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  const nonce = crypto.randomBytes(16).toString('base64');
+  res.locals.cspNonce = nonce;
+  if (isProd) {
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  }
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
-  // unsafe-inline required for inline theme-init script and onclick handlers;
-  // cdn.jsdelivr.net required for Chart.js; lh3.googleusercontent.com for Google avatars
+  // The theme-init inline script uses the per-request nonce; all other JS is
+  // served as external files from 'self' or the pinned CDN host.
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+    `script-src 'self' 'nonce-${nonce}' https://cdn.jsdelivr.net`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' https://lh3.googleusercontent.com data:",
     "connect-src 'self'",
@@ -405,7 +416,9 @@ app.get('/', (req, res) => {
 });
 
 app.get('/app', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'app.html'));
+  const html = appHtmlTemplate.replace('CSP_NONCE', res.locals.cspNonce);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
 });
 
 app.get('/admin', requireAuth, requireAdmin, (req, res) => {

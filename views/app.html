@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Unsubscribe">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script>
+  <script nonce="CSP_NONCE">
     (function() {
       const t = localStorage.getItem('theme');
       if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches))
@@ -526,29 +526,29 @@
       <div class="user-info" id="user-info"></div>
       <a href="/admin" id="admin-link" class="admin-link" style="display:none">Admin</a>
       <a href="/help" class="admin-link">Help</a>
-      <button class="theme-toggle" onclick="toggleDark()" title="Toggle dark mode">
+      <button class="theme-toggle" title="Toggle dark mode">
         <svg class="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         <svg class="icon-sun"  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
       </button>
-      <button class="settings-gear-btn" onclick="openSettings()" title="Settings">
+      <button class="settings-gear-btn" title="Settings">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
-      <button class="btn btn-ghost btn-sm" onclick="logout()">Sign out</button>
+      <button class="btn btn-ghost btn-sm" id="logout-btn">Sign out</button>
     </div>
   </header>
 
   <main>
     <div class="tab-nav">
-      <button class="tab-btn active" id="tab-btn-emails"    onclick="showTab('emails')">Emails</button>
-      <button class="tab-btn"        id="tab-btn-analytics" onclick="showTab('analytics')">Analytics</button>
+      <button class="tab-btn active" id="tab-btn-emails">Emails</button>
+      <button class="tab-btn"        id="tab-btn-analytics">Analytics</button>
     </div>
 
     <!-- ── Analytics section ─────────────────────────────────────────────── -->
     <div id="section-analytics" style="display:none">
       <div class="analytics-controls">
         <div class="range-group">
-          <button class="range-btn active" id="abtn-week"  onclick="setAnalyticsPeriod('week')">Last 7 Days</button>
-          <button class="range-btn"        id="abtn-month" onclick="setAnalyticsPeriod('month')">Last 30 Days</button>
+          <button class="range-btn active" id="abtn-week">Last 7 Days</button>
+          <button class="range-btn"        id="abtn-month">Last 30 Days</button>
         </div>
       </div>
       <div id="analytics-cap-warn" class="analytics-cap-warn" style="display:none">
@@ -568,24 +568,24 @@
     <div id="section-emails">
     <div class="controls">
       <div class="range-group">
-        <button class="range-btn active" id="btn-yesterday" onclick="setRange('yesterday')">Yesterday</button>
-        <button class="range-btn" id="btn-week" onclick="setRange('week')">Last 7 Days</button>
-        <button class="range-btn" id="btn-month" onclick="setRange('month')">Last 30 Days</button>
+        <button class="range-btn active" id="btn-yesterday">Yesterday</button>
+        <button class="range-btn" id="btn-week">Last 7 Days</button>
+        <button class="range-btn" id="btn-month">Last 30 Days</button>
       </div>
-      <button class="btn btn-primary btn-sm" id="fetch-btn" onclick="fetchEmails()">Fetch Emails</button>
-      <button class="group-toggle-btn active" id="group-btn" onclick="toggleGrouped()">
+      <button class="btn btn-primary btn-sm" id="fetch-btn">Fetch Emails</button>
+      <button class="group-toggle-btn active" id="group-btn">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         Group by Domain
       </button>
-      <button class="btn btn-primary btn-sm" id="bulk-btn" onclick="bulkOpen()" style="display:none">
+      <button class="btn btn-primary btn-sm" id="bulk-btn" style="display:none">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         Open Selected (<span id="bulk-count">0</span>)
       </button>
       <div class="search-wrap">
         <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" class="search-input" id="search-input" placeholder="Filter by domain or subject…" oninput="onSearch()">
+        <input type="text" class="search-input" id="search-input" placeholder="Filter by domain or subject…">
       </div>
-      <button class="btn btn-ghost btn-sm" id="export-btn" onclick="exportCsv()" style="display:none" title="Export current results to CSV">
+      <button class="btn btn-ghost btn-sm" id="export-btn" style="display:none" title="Export current results to CSV">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export CSV
       </button>
@@ -608,11 +608,11 @@
       <table>
         <thead>
           <tr id="thead-row">
-            <th class="check-cell"><input type="checkbox" id="select-all" class="row-check" title="Select all" onchange="toggleSelectAll(this)"></th>
-            <th class="sortable sort-active" data-col="domain" onclick="setSortCol('domain')">Domain <span class="sort-indicator">▲</span></th>
-            <th class="sortable" data-col="senderEmail" onclick="setSortCol('senderEmail')">Sender <span class="sort-indicator">⇅</span></th>
-            <th class="sortable" data-col="subject" onclick="setSortCol('subject')">Subject <span class="sort-indicator">⇅</span></th>
-            <th class="sortable" data-col="date" onclick="setSortCol('date')">Date <span class="sort-indicator">⇅</span></th>
+            <th class="check-cell"><input type="checkbox" id="select-all" class="row-check" title="Select all"></th>
+            <th class="sortable sort-active" data-col="domain">Domain <span class="sort-indicator">▲</span></th>
+            <th class="sortable" data-col="senderEmail">Sender <span class="sort-indicator">⇅</span></th>
+            <th class="sortable" data-col="subject">Subject <span class="sort-indicator">⇅</span></th>
+            <th class="sortable" data-col="date">Date <span class="sort-indicator">⇅</span></th>
             <th>Action</th>
           </tr>
         </thead>
@@ -623,707 +623,14 @@
     </div> <!-- /section-emails -->
   </main>
 
-  <script>
-    let currentRange = 'yesterday';
-    let csrfToken = '';
-    let allEmails = [];
-    let sortCol = 'domain';
-    let sortDir = 'asc';
-    let isGrouped = true;
-    let expandedDomains = new Set();
-    let unsubscribedDomains = new Set();
-    let searchQuery = '';
-
-    function toggleDark() {
-      const dark = document.documentElement.classList.toggle('dark');
-      localStorage.setItem('theme', dark ? 'dark' : 'light');
-    }
-
-    function renderUserInfo(user) {
-      const el = document.getElementById('user-info');
-      const initials = ((user.firstName?.[0] || '') + (user.lastName?.[0] || '')).toUpperCase() || user.email[0].toUpperCase();
-      const avatar = user.picture
-        ? `<img src="${esc(user.picture)}" class="user-avatar" referrerpolicy="no-referrer">`
-        : `<div class="avatar-initials">${initials}</div>`;
-      el.innerHTML = `${avatar}<span>${esc(user.firstName || user.email)}</span>`;
-      if (user.isAdmin) document.getElementById('admin-link').style.display = 'inline-flex';
-    }
-
-    function setRange(range) {
-      currentRange = range;
-      ['yesterday', 'week', 'month'].forEach(r =>
-        document.getElementById(`btn-${r}`).classList.toggle('active', range === r)
-      );
-    }
-
-    // ── Search / filter ───────────────────────────────────────────────────────
-    let searchDebounceTimer = null;
-    function onSearch() {
-      clearTimeout(searchDebounceTimer);
-      searchDebounceTimer = setTimeout(() => {
-        searchQuery = document.getElementById('search-input').value;
-        if (allEmails.length) applyFilters();
-      }, 250);
-    }
-
-    function applyFilters() {
-      const q = searchQuery.toLowerCase().trim();
-      const filtered = q
-        ? allEmails.filter(e =>
-            e.domain.toLowerCase().includes(q) ||
-            e.subject.toLowerCase().includes(q) ||
-            e.senderEmail.toLowerCase().includes(q))
-        : allEmails;
-
-      const meta = document.getElementById('results-meta');
-      const wrap = document.getElementById('table-wrap');
-      const empty = document.getElementById('empty-state');
-
-      if (!filtered.length) {
-        wrap.style.display = 'none';
-        empty.style.display = 'block';
-        empty.querySelector('p').textContent = q
-          ? 'No emails match your filter.'
-          : 'No emails with unsubscribe links for this time period.';
-        meta.textContent = q ? `No results for "${q}"` : '';
-        document.getElementById('export-btn').style.display = 'none';
-      } else {
-        empty.style.display = 'none';
-        wrap.style.display = 'block';
-        document.getElementById('export-btn').style.display = '';
-        const domainCount = new Set(filtered.map(e => e.domain)).size;
-        meta.textContent = isGrouped
-          ? `${domainCount} domain${domainCount !== 1 ? 's' : ''}, ${filtered.length} email${filtered.length !== 1 ? 's' : ''}`
-          : `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
-        renderTable(filtered);
-      }
-    }
-
-    // ── Export CSV ────────────────────────────────────────────────────────────
-    function exportCsv() {
-      const q = searchQuery.toLowerCase().trim();
-      const data = q
-        ? allEmails.filter(e =>
-            e.domain.toLowerCase().includes(q) ||
-            e.subject.toLowerCase().includes(q) ||
-            e.senderEmail.toLowerCase().includes(q))
-        : allEmails;
-
-      const rows = data.map(e =>
-        [e.domain, e.senderEmail, e.subject, e.date, e.unsubscribeUrl,
-          unsubscribedDomains.has(e.domain) ? 'Unsubscribed' : 'Active']
-          .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')
-      );
-      const csv = ['Domain,Sender Email,Subject,Date,Unsubscribe URL,Status', ...rows].join('\n');
-      const a = Object.assign(document.createElement('a'), {
-        href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })),
-        download: `unsubscribe-${currentRange}-${new Date().toISOString().slice(0, 10)}.csv`,
-      });
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }
-
-    // ── Bulk open ─────────────────────────────────────────────────────────────
-    function checkCell(domain, senderEmail, url) {
-      const d = esc(domain); const s = esc(senderEmail); const u = esc(url);
-      return `<td class="check-cell"><input type="checkbox" class="row-check" data-url="${u}" data-domain="${d}" data-sender="${s}" onchange="onCheckChange()"></td>`;
-    }
-
-    function onCheckChange() {
-      const checked = document.querySelectorAll('.row-check:checked');
-      const all = document.querySelectorAll('tbody .row-check');
-      const selectAll = document.getElementById('select-all');
-      selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
-      selectAll.checked = all.length > 0 && checked.length === all.length;
-      document.getElementById('bulk-count').textContent = checked.length;
-      document.getElementById('bulk-btn').style.display = checked.length > 0 ? '' : 'none';
-    }
-
-    function toggleSelectAll(cb) {
-      document.querySelectorAll('tbody .row-check').forEach(c => c.checked = cb.checked);
-      onCheckChange();
-    }
-
-    function bulkOpen() {
-      const checks = [...document.querySelectorAll('.row-check:checked')];
-      checks.forEach(c => {
-        window.open(c.dataset.url, '_blank', 'noopener,noreferrer');
-        unsubscribedDomains.add(c.dataset.domain);
-        fetch('/api/unsubscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-          body: JSON.stringify({ domain: c.dataset.domain, senderEmail: c.dataset.sender, unsubscribeUrl: c.dataset.url }),
-        }).catch(err => console.warn('Failed to log unsubscribe:', err));
-      });
-      applyFilters(); // re-render (clears checkboxes, resets bulk btn)
-    }
-
-    function resetBulkState() {
-      const selectAll = document.getElementById('select-all');
-      if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
-      document.getElementById('bulk-btn').style.display = 'none';
-      document.getElementById('bulk-count').textContent = '0';
-    }
-
-    // ── Sorting ───────────────────────────────────────────────────────────────
-    function setSortCol(col) {
-      if (sortCol === col) {
-        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-      } else {
-        sortCol = col;
-        sortDir = col === 'date' ? 'desc' : 'asc';
-      }
-      applyFilters();
-    }
-
-    function updateSortHeaders() {
-      document.querySelectorAll('th[data-col]').forEach(th => {
-        const active = th.dataset.col === sortCol;
-        th.classList.toggle('sort-active', active);
-        th.querySelector('.sort-indicator').textContent =
-          active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅';
-      });
-    }
-
-    function sorted(emails) {
-      return [...emails].sort((a, b) => {
-        const va = sortCol === 'date' ? new Date(a.date).getTime() : (a[sortCol] || '').toLowerCase();
-        const vb = sortCol === 'date' ? new Date(b.date).getTime() : (b[sortCol] || '').toLowerCase();
-        if (va < vb) return sortDir === 'asc' ? -1 : 1;
-        if (va > vb) return sortDir === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-
-    // ── Grouping ──────────────────────────────────────────────────────────────
-    function toggleGrouped() {
-      isGrouped = !isGrouped;
-      expandedDomains.clear();
-      document.getElementById('group-btn').classList.toggle('active', isGrouped);
-      applyFilters();
-    }
-
-    function toggleDomain(domain) {
-      if (expandedDomains.has(domain)) {
-        expandedDomains.delete(domain);
-      } else {
-        expandedDomains.add(domain);
-      }
-      applyFilters();
-    }
-
-    // ── Rendering ─────────────────────────────────────────────────────────────
-    function unsubBtn(domain, senderEmail, url, done, oneClick) {
-      const d = esc(domain); const s = esc(senderEmail); const u = esc(url);
-      const checkIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-      if (done) {
-        return `<button class="unsub-btn done" onclick="handleUnsubscribe(event,'${d}','${s}','${u}')">${checkIcon} Unsubscribed</button>`;
-      }
-      if (oneClick) {
-        const zapIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
-        return `<button class="unsub-btn one-click" onclick="handleOneClick(event,'${d}','${s}','${u}')">${zapIcon} 1-Click Unsubscribe</button>`;
-      }
-      const linkIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
-      return `<button class="unsub-btn" onclick="handleUnsubscribe(event,'${d}','${s}','${u}')">${linkIcon} Unsubscribe</button>`;
-    }
-
-    async function handleUnsubscribe(e, domain, senderEmail, url) {
-      window.open(url, '_blank', 'noopener,noreferrer');
-      unsubscribedDomains.add(domain);
-      applyFilters();
-      fetch('/api/unsubscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-        body: JSON.stringify({ domain, senderEmail, unsubscribeUrl: url }),
-      }).catch(err => console.warn('Failed to log unsubscribe:', err));
-    }
-
-    async function handleOneClick(e, domain, senderEmail, url) {
-      const btn = e.currentTarget;
-      btn.disabled = true;
-      btn.innerHTML = `<span class="btn-spinner"></span> Unsubscribing…`;
-      try {
-        const res = await fetch('/api/one-click-unsubscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-          body: JSON.stringify({ domain, senderEmail, unsubscribeUrl: url }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to unsubscribe');
-        unsubscribedDomains.add(domain);
-        applyFilters();
-      } catch (err) {
-        btn.disabled = false;
-        const zapIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
-        btn.innerHTML = `${zapIcon} 1-Click Unsubscribe`;
-        console.error('One-click unsubscribe error:', err);
-        alert('Unsubscribe failed: ' + err.message);
-      }
-    }
-
-    function renderCards(emails) {
-      const container = document.getElementById('email-cards');
-      if (!container) return;
-
-      const chevronSvg = open => `<svg class="expand-icon${open ? ' open' : ''}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
-
-      if (!isGrouped) {
-        container.innerHTML = sorted(emails).map(e => {
-          const done = unsubscribedDomains.has(e.domain);
-          return `
-            <div class="email-card">
-              <div class="email-card-header">
-                <div class="email-card-domain">${esc(e.domain)}</div>
-                <div style="flex-shrink:0">${unsubBtn(e.domain, e.senderEmail, e.unsubscribeUrl, done, e.oneClick)}</div>
-              </div>
-              <div class="email-card-meta">
-                <span class="email-card-sender">${esc(e.senderEmail)}</span>
-                <span class="email-card-date">${esc(e.date)}</span>
-              </div>
-              <div class="email-card-subject" title="${esc(e.subject)}">${esc(e.subject)}</div>
-            </div>`;
-        }).join('');
-        return;
-      }
-
-      const groupMap = new Map();
-      emails.forEach(e => {
-        if (!groupMap.has(e.domain)) groupMap.set(e.domain, []);
-        groupMap.get(e.domain).push(e);
-      });
-      groupMap.forEach(items => items.sort((a, b) => new Date(b.date) - new Date(a.date)));
-
-      let groups = [...groupMap.entries()].map(([domain, items]) => ({ domain, items, rep: items[0] }));
-      groups.sort((a, b) => {
-        let va, vb;
-        if (sortCol === 'domain')     { va = a.domain.toLowerCase();               vb = b.domain.toLowerCase(); }
-        else if (sortCol === 'date')  { va = new Date(a.rep.date).getTime();        vb = new Date(b.rep.date).getTime(); }
-        else                          { va = (a.rep[sortCol] || '').toLowerCase();  vb = (b.rep[sortCol] || '').toLowerCase(); }
-        if (va < vb) return sortDir === 'asc' ? -1 : 1;
-        if (va > vb) return sortDir === 'asc' ? 1 : -1;
-        return 0;
-      });
-
-      container.innerHTML = groups.map(({ domain, items, rep }) => {
-        const expanded = expandedDomains.has(domain);
-        const done = unsubscribedDomains.has(domain);
-        const countBadge = items.length > 1 ? `<span class="count-badge">${items.length}</span>` : '';
-        const unsubBadge = done ? `<span class="badge badge-active" style="margin-left:0">✓ Unsubscribed</span>` : '';
-
-        const expandBtn = items.length > 1 ? `
-          <button class="email-card-expand" onclick="toggleDomain('${esc(domain)}')">
-            ${chevronSvg(expanded)}${expanded ? 'Collapse' : `${items.length - 1} more email${items.length - 1 !== 1 ? 's' : ''}`}
-          </button>` : '';
-
-        const subs = expanded && items.length > 1 ? `
-          <div class="email-card-subs">
-            ${items.map(e => `
-              <div>
-                <div class="email-card-sub-header">
-                  <span class="email-card-sub-sender">${esc(e.senderEmail)}</span>
-                  <div style="flex-shrink:0">${unsubBtn(e.domain, e.senderEmail, e.unsubscribeUrl, unsubscribedDomains.has(e.domain), e.oneClick)}</div>
-                </div>
-                <div class="email-card-sub-subject" title="${esc(e.subject)}">${esc(e.subject)}</div>
-                <div class="email-card-sub-date">${esc(e.date)}</div>
-              </div>`).join('')}
-          </div>` : '';
-
-        return `
-          <div class="email-card">
-            <div class="email-card-header">
-              <div class="email-card-domain">${esc(domain)}${countBadge}${unsubBadge}</div>
-              <div style="flex-shrink:0">${unsubBtn(rep.domain, rep.senderEmail, rep.unsubscribeUrl, done, rep.oneClick)}</div>
-            </div>
-            <div class="email-card-meta">
-              <span class="email-card-sender">${esc(rep.senderEmail)}</span>
-              <span class="email-card-date">${esc(rep.date)}</span>
-            </div>
-            <div class="email-card-subject" title="${esc(rep.subject)}">${esc(rep.subject)}</div>
-            ${expandBtn}${subs}
-          </div>`;
-      }).join('');
-    }
-
-    function renderTable(emails) {
-      updateSortHeaders();
-      resetBulkState();
-      renderCards(emails);
-      const tbody = document.getElementById('email-tbody');
-
-      if (!isGrouped) {
-        tbody.innerHTML = sorted(emails).map(e => `
-          <tr>
-            ${checkCell(e.domain, e.senderEmail, e.unsubscribeUrl)}
-            <td class="domain-cell">${esc(e.domain)}</td>
-            <td class="email-cell">${esc(e.senderEmail)}</td>
-            <td class="subject-cell" title="${esc(e.subject)}">${esc(e.subject)}</td>
-            <td class="date-cell">${esc(e.date)}</td>
-            <td>${unsubBtn(e.domain, e.senderEmail, e.unsubscribeUrl, unsubscribedDomains.has(e.domain), e.oneClick)}</td>
-          </tr>`).join('');
-        return;
-      }
-
-      const groupMap = new Map();
-      emails.forEach(e => {
-        if (!groupMap.has(e.domain)) groupMap.set(e.domain, []);
-        groupMap.get(e.domain).push(e);
-      });
-      groupMap.forEach(items => items.sort((a, b) => new Date(b.date) - new Date(a.date)));
-
-      let groups = [...groupMap.entries()].map(([domain, items]) => ({ domain, items, rep: items[0] }));
-      groups.sort((a, b) => {
-        let va, vb;
-        if (sortCol === 'domain')     { va = a.domain.toLowerCase();               vb = b.domain.toLowerCase(); }
-        else if (sortCol === 'date')  { va = new Date(a.rep.date).getTime();        vb = new Date(b.rep.date).getTime(); }
-        else                          { va = (a.rep[sortCol] || '').toLowerCase();  vb = (b.rep[sortCol] || '').toLowerCase(); }
-        if (va < vb) return sortDir === 'asc' ? -1 : 1;
-        if (va > vb) return sortDir === 'asc' ? 1 : -1;
-        return 0;
-      });
-
-      tbody.innerHTML = groups.flatMap(({ domain, items, rep }) => {
-        const expanded = expandedDomains.has(domain);
-        const done = unsubscribedDomains.has(domain);
-        const chevron = `<svg class="expand-icon ${expanded ? 'open' : ''}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
-        const countBadge = items.length > 1 ? `<span class="count-badge">${items.length}</span>` : '';
-        const unsubBadge = done ? `<span class="badge badge-active" style="margin-left:7px">✓ Unsubscribed</span>` : '';
-
-        const summary = `
-          <tr class="group-row" data-domain="${esc(domain)}">
-            ${checkCell(rep.domain, rep.senderEmail, rep.unsubscribeUrl)}
-            <td class="domain-cell"><div style="display:flex;align-items:center">${chevron}${esc(domain)}${countBadge}${unsubBadge}</div></td>
-            <td class="email-cell">${esc(rep.senderEmail)}</td>
-            <td class="subject-cell" title="${esc(rep.subject)}">${esc(rep.subject)}</td>
-            <td class="date-cell">${esc(rep.date)}</td>
-            <td>${unsubBtn(rep.domain, rep.senderEmail, rep.unsubscribeUrl, done, rep.oneClick)}</td>
-          </tr>`;
-
-        if (!expanded || items.length <= 1) return [summary];
-
-        return [summary, ...items.map(e => `
-          <tr class="sub-row">
-            ${checkCell(e.domain, e.senderEmail, e.unsubscribeUrl)}
-            <td></td>
-            <td class="email-cell">${esc(e.senderEmail)}</td>
-            <td class="subject-cell" title="${esc(e.subject)}">${esc(e.subject)}</td>
-            <td class="date-cell">${esc(e.date)}</td>
-            <td>${unsubBtn(e.domain, e.senderEmail, e.unsubscribeUrl, unsubscribedDomains.has(e.domain), e.oneClick)}</td>
-          </tr>`)];
-      }).join('');
-    }
-
-    document.getElementById('email-tbody').addEventListener('click', e => {
-      if (e.target.type === 'checkbox') return; // don't expand/collapse when clicking a checkbox
-      const row = e.target.closest('.group-row');
-      if (row) toggleDomain(row.dataset.domain);
-    });
-
-    // ── Fetch ─────────────────────────────────────────────────────────────────
-    async function fetchEmails() {
-      const btn = document.getElementById('fetch-btn');
-      const loading = document.getElementById('loading');
-      const wrap = document.getElementById('table-wrap');
-      const empty = document.getElementById('empty-state');
-      const err = document.getElementById('error-msg');
-
-      btn.disabled = true;
-      loading.style.display = 'block';
-      wrap.style.display = 'none';
-      empty.style.display = 'none';
-      err.style.display = 'none';
-      document.getElementById('results-meta').textContent = '';
-      document.getElementById('export-btn').style.display = 'none';
-      expandedDomains.clear();
-      unsubscribedDomains.clear();
-      allEmails = [];
-
-      try {
-        const res = await fetch(`/api/emails?range=${currentRange}`);
-        const data = await res.json();
-        if (!res.ok) {
-          if (res.status === 401) return window.location.href = '/';
-          throw new Error(data.error || 'Failed to fetch emails');
-        }
-        loading.style.display = 'none';
-        if (!data.emails?.length) {
-          empty.style.display = 'block';
-        } else {
-          allEmails = data.emails;
-          unsubscribedDomains = new Set(data.emails.filter(e => e.alreadyUnsubscribed).map(e => e.domain));
-          applyFilters();
-        }
-      } catch (e) {
-        loading.style.display = 'none';
-        err.textContent = e.message;
-        err.style.display = 'block';
-      } finally {
-        btn.disabled = false;
-      }
-    }
-
-    async function logout() {
-      await fetch('/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } });
-      window.location.href = '/';
-    }
-
-    function esc(s) {
-      return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    async function acceptPolicy() {
-      const btn = document.getElementById('policy-accept-btn');
-      btn.disabled = true;
-      try {
-        const res = await fetch('/api/accept-policy', {
-          method: 'POST',
-          headers: { 'X-CSRF-Token': csrfToken },
-        });
-        if (!res.ok) throw new Error('Failed to record acceptance');
-        document.getElementById('policy-overlay').classList.add('hidden');
-      } catch (e) {
-        btn.disabled = false;
-        alert('Something went wrong. Please try again.');
-      }
-    }
-
-    async function declinePolicy() {
-      await fetch('/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } });
-      window.location.href = '/';
-    }
-
-    // ── Tab switching ─────────────────────────────────────────────────────
-    let activeTab = 'emails';
-    function showTab(tab) {
-      activeTab = tab;
-      document.getElementById('section-emails').style.display    = tab === 'emails'    ? '' : 'none';
-      document.getElementById('section-analytics').style.display = tab === 'analytics' ? '' : 'none';
-      document.getElementById('tab-btn-emails').classList.toggle('active',    tab === 'emails');
-      document.getElementById('tab-btn-analytics').classList.toggle('active', tab === 'analytics');
-      if (tab === 'analytics' && !analyticsLoaded) fetchAnalytics();
-    }
-
-    // ── Analytics ─────────────────────────────────────────────────────────
-    let analyticsLoaded = false;
-    let analyticsPeriod = 'week';
-    let analyticsChart = null;
-    let analyticsAbortController = null;
-
-    function setAnalyticsPeriod(period) {
-      analyticsPeriod = period;
-      document.getElementById('abtn-week').classList.toggle('active',  period === 'week');
-      document.getElementById('abtn-month').classList.toggle('active', period === 'month');
-      analyticsLoaded = false;
-      fetchAnalytics();
-    }
-
-    async function fetchAnalytics() {
-      // Abort any in-flight analytics request before starting a new one
-      if (analyticsAbortController) analyticsAbortController.abort();
-      analyticsAbortController = new AbortController();
-      const signal = analyticsAbortController.signal;
-
-      const loading  = document.getElementById('analytics-loading');
-      const chartWrap = document.getElementById('analytics-chart-wrap');
-      const trendEl  = document.getElementById('analytics-trend');
-      const capWarn  = document.getElementById('analytics-cap-warn');
-
-      loading.style.display   = 'block';
-      chartWrap.style.display = 'none';
-      trendEl.style.display   = 'none';
-      capWarn.style.display   = 'none';
-
-      try {
-        const res = await fetch(`/api/analytics?period=${analyticsPeriod}`, { signal });
-        const data = await res.json();
-        if (!res.ok) {
-          if (res.status === 401) return window.location.href = '/';
-          throw new Error(data.error || 'Failed to fetch analytics');
-        }
-
-        loading.style.display   = 'none';
-        chartWrap.style.display = 'block';
-        trendEl.style.display   = 'block';
-
-        if (data.capped) capWarn.style.display = 'block';
-
-        renderAnalyticsChart(data);
-        renderTrend(data);
-        analyticsLoaded = true;
-      } catch (e) {
-        if (e.name === 'AbortError') return; // superseded by a newer request — ignore silently
-        loading.innerHTML = `<p style="color:var(--danger)">${esc(e.message)}</p>`;
-      }
-    }
-
-    function renderAnalyticsChart(data) {
-      const isDark = document.documentElement.classList.contains('dark');
-      const gridColor  = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.07)';
-      const labelColor = isDark ? '#9ca3af' : '#6b7280';
-      const barColor   = 'rgba(99,102,241,.75)';
-      const barHover   = 'rgba(99,102,241,1)';
-
-      if (analyticsChart) { analyticsChart.destroy(); analyticsChart = null; }
-
-      const ctx = document.getElementById('analytics-chart').getContext('2d');
-      analyticsChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: data.labels.map(d => {
-            const dt = new Date(d + 'T00:00:00');
-            return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          }),
-          datasets: [{
-            label: 'Unsubscribable emails',
-            data: data.counts,
-            backgroundColor: barColor,
-            hoverBackgroundColor: barHover,
-            borderRadius: 4,
-            borderSkipped: false,
-          }],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: ctx => ` ${ctx.parsed.y} email${ctx.parsed.y !== 1 ? 's' : ''}`,
-              },
-            },
-          },
-          scales: {
-            x: { grid: { color: gridColor }, ticks: { color: labelColor, maxRotation: 45 } },
-            y: { grid: { color: gridColor }, ticks: { color: labelColor, precision: 0 }, beginAtZero: true },
-          },
-        },
-      });
-    }
-
-    function renderTrend(data) {
-      const el = document.getElementById('analytics-trend');
-      const { total, previousTotal } = data;
-      const label = analyticsPeriod === 'week' ? '7 days' : '30 days';
-
-      if (previousTotal === 0 && total === 0) {
-        el.innerHTML = `<span class="trend-flat">—</span> No unsubscribable emails in either period.`;
-        return;
-      }
-      if (previousTotal === 0) {
-        el.innerHTML = `<span class="trend-up">↑ New</span> ${total} email${total !== 1 ? 's' : ''} this period (no data for previous ${label}).`;
-        return;
-      }
-
-      const pct = Math.round(Math.abs(total - previousTotal) / previousTotal * 100);
-      if (total > previousTotal) {
-        el.innerHTML = `<span class="trend-up">↑ ${pct}% more</span> than the previous ${label} (${total} vs ${previousTotal}).`;
-      } else if (total < previousTotal) {
-        el.innerHTML = `<span class="trend-down">↓ ${pct}% fewer</span> than the previous ${label} (${total} vs ${previousTotal}).`;
-      } else {
-        el.innerHTML = `<span class="trend-flat">— No change</span> vs the previous ${label} (${total} email${total !== 1 ? 's' : ''}).`;
-      }
-    }
-
-    // ── Settings ──────────────────────────────────────────────────────────────
-    let userSettings = {};
-
-    async function loadSettings() {
-      try {
-        const res = await fetch('/api/user-settings');
-        if (res.ok) userSettings = await res.json();
-      } catch { /* non-critical */ }
-    }
-
-    async function saveSetting(key, value) {
-      userSettings[key] = value;
-      await fetch('/api/user-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-        body: JSON.stringify({ [key]: value }),
-      }).catch(() => {});
-    }
-
-    function openSettings() {
-      // Sync toggles to current state before opening
-      document.getElementById('setting-dark-mode').checked =
-        document.documentElement.classList.contains('dark');
-      document.getElementById('settings-overlay').style.display = '';
-      requestAnimationFrame(() =>
-        document.getElementById('settings-drawer').classList.add('open')
-      );
-      // Reset delete confirm box
-      document.getElementById('delete-confirm-box').style.display = 'none';
-      document.getElementById('delete-confirm-input').value = '';
-      document.getElementById('delete-confirm-error').style.display = 'none';
-    }
-
-    function closeSettings() {
-      document.getElementById('settings-drawer').classList.remove('open');
-      setTimeout(() => { document.getElementById('settings-overlay').style.display = 'none'; }, 260);
-    }
-
-    function settingToggleDark() {
-      toggleDark();
-      document.getElementById('setting-dark-mode').checked =
-        document.documentElement.classList.contains('dark');
-    }
-
-    function showDeleteConfirm() {
-      document.getElementById('delete-confirm-box').style.display = 'block';
-      document.getElementById('delete-confirm-input').focus();
-    }
-
-    async function confirmDeleteAccount() {
-      const val = document.getElementById('delete-confirm-input').value.trim();
-      const errEl = document.getElementById('delete-confirm-error');
-      if (val !== 'DELETE') {
-        errEl.textContent = 'Type DELETE (all caps) to confirm.';
-        errEl.style.display = 'block';
-        return;
-      }
-      errEl.style.display = 'none';
-      const btn = document.getElementById('delete-account-confirm-btn');
-      btn.disabled = true; btn.textContent = 'Deleting…';
-      try {
-        const res = await fetch('/api/account', {
-          method: 'DELETE',
-          headers: { 'X-CSRF-Token': csrfToken },
-        });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
-        window.location.href = '/';
-      } catch (e) {
-        btn.disabled = false; btn.textContent = 'Permanently Delete';
-        errEl.textContent = 'Error: ' + e.message;
-        errEl.style.display = 'block';
-      }
-    }
-
-    async function init() {
-      const res = await fetch('/auth/status');
-      const data = await res.json();
-      if (!data.authenticated) return window.location.href = '/';
-      csrfToken = data.csrfToken;
-      renderUserInfo(data.user);
-      await loadSettings();
-      if (data.requiresPolicyAcceptance) {
-        document.getElementById('policy-overlay').classList.remove('hidden');
-      }
-      fetchEmails();
-    }
-
-    init();
-
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
-    }
-  </script>
+  <script src="/app.js" defer></script>
 
   <!-- Settings overlay + drawer -->
-  <div id="settings-overlay" class="settings-overlay" onclick="closeSettings()" style="display:none"></div>
+  <div id="settings-overlay" class="settings-overlay" style="display:none"></div>
   <div id="settings-drawer" class="settings-drawer">
     <div class="settings-drawer-header">
       <h2>Settings</h2>
-      <button class="settings-close-btn" onclick="closeSettings()" title="Close">✕</button>
+      <button class="settings-close-btn" id="settings-close-btn" title="Close">✕</button>
     </div>
     <div class="settings-body">
 
@@ -1335,7 +642,7 @@
             <div class="settings-row-label">Dark mode</div>
           </div>
           <label class="toggle-switch">
-            <input type="checkbox" id="setting-dark-mode" onchange="settingToggleDark()">
+            <input type="checkbox" id="setting-dark-mode">
             <span class="toggle-track"></span>
           </label>
         </div>
@@ -1348,15 +655,15 @@
           Permanently removes your account from this app — your Google OAuth access is revoked,
           and all stored history and analytics data is deleted. This cannot be undone.
         </p>
-        <button class="btn btn-danger" onclick="showDeleteConfirm()">Delete Account…</button>
+        <button class="btn btn-danger" id="show-delete-confirm-btn">Delete Account…</button>
         <div class="delete-confirm-box" id="delete-confirm-box">
           <p>Type <strong>DELETE</strong> to confirm permanent account deletion:</p>
           <input class="delete-confirm-input" id="delete-confirm-input"
                  type="text" placeholder="DELETE" autocomplete="off" autocorrect="off" spellcheck="false">
           <p id="delete-confirm-error" style="color:var(--danger);font-size:12px;display:none;margin-bottom:8px;"></p>
           <div class="delete-confirm-actions">
-            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('delete-confirm-box').style.display='none'">Cancel</button>
-            <button class="btn btn-danger btn-sm" id="delete-account-confirm-btn" onclick="confirmDeleteAccount()">Permanently Delete</button>
+            <button class="btn btn-ghost btn-sm" id="cancel-delete-btn">Cancel</button>
+            <button class="btn btn-danger btn-sm" id="delete-account-confirm-btn">Permanently Delete</button>
           </div>
         </div>
       </div>
@@ -1379,8 +686,8 @@
         If you decline, you will be signed out.
       </p>
       <div class="policy-modal-actions">
-        <button class="policy-decline-btn" onclick="declinePolicy()">Decline &amp; sign out</button>
-        <button class="policy-accept-btn" id="policy-accept-btn" onclick="acceptPolicy()">I accept</button>
+        <button class="policy-decline-btn" id="policy-decline-btn">Decline &amp; sign out</button>
+        <button class="policy-accept-btn" id="policy-accept-btn">I accept</button>
       </div>
     </div>
   </div>
