@@ -57,7 +57,6 @@ export class EmailUnsubscribeStack extends cdk.Stack {
       partitionKey: { name: 'userEmail', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'domain', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
@@ -66,7 +65,6 @@ export class EmailUnsubscribeStack extends cdk.Stack {
       partitionKey: { name: 'userEmail', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'date', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
       timeToLiveAttribute: 'expiresAt',
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
