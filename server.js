@@ -542,7 +542,8 @@ app.post('/api/accept-policy', requireAuth, requireCsrf, async (req, res) => {
     req.session.user.privacyAcceptedVersion = PRIVACY_POLICY_VERSION;
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Accept policy error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -788,7 +789,7 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
       req.session.destroy();
       return res.status(401).json({ error: 'Session expired, please log in again' });
     }
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -805,7 +806,7 @@ app.post('/api/unsubscribe', requireAuth, requireCsrf, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('Unsubscribe log error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -924,7 +925,7 @@ app.get('/api/user-settings', requireAuth, async (req, res) => {
     res.json(Item?.settings || {});
   } catch (err) {
     console.error('Get user-settings error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -955,7 +956,7 @@ app.post('/api/user-settings', requireAuth, requireCsrf, async (req, res) => {
     res.json({ ok: true, settings: merged });
   } catch (err) {
     console.error('Post user-settings error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1156,7 +1157,7 @@ app.delete('/api/account', requireAuth, requireCsrf, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('Account delete error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1167,7 +1168,7 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   try {
     res.json({ users: await getAllAllowlistEntries() });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1189,7 +1190,7 @@ app.post('/api/admin/users', requireAuth, requireAdmin, requireCsrf, async (req,
     });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1202,7 +1203,7 @@ app.patch('/api/admin/users/:email', requireAuth, requireAdmin, requireCsrf, asy
     await upsertAllowlistEntry(email, updates);
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1211,7 +1212,7 @@ app.delete('/api/admin/users/:email', requireAuth, requireAdmin, requireCsrf, as
     await deleteAllowlistEntry(req.params.email);
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1219,7 +1220,7 @@ app.get('/api/admin/history', requireAuth, requireAdmin, async (req, res) => {
   try {
     res.json({ history: await getAllHistory() });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1227,7 +1228,7 @@ app.get('/api/admin/sessions', requireAuth, requireAdmin, async (req, res) => {
   try {
     res.json({ sessions: await getActiveSessions() });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1236,7 +1237,7 @@ app.delete('/api/admin/sessions/:sid', requireAuth, requireAdmin, requireCsrf, a
     await new Promise((resolve, reject) => sessionStore.destroy(req.params.sid, err => err ? reject(err) : resolve()));
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
