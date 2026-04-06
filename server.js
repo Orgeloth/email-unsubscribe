@@ -789,20 +789,38 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
       const oldestDate = toFetch[0]; // already sorted oldest-first
       const afterTimestamp = Math.floor(new Date(oldestDate).getTime() / 1000);
 
-      const listResponse = await gmail.users.messages.list({
-        userId: 'me',
-        q: `(unsubscribe OR "opt out" OR "opt-out") after:${afterTimestamp}`,
-        maxResults: 500,
-      }, { timeout: 15000 });
+      // Paginate through results; stop if we exceed the safety cap.
+      // Slice each page to never exceed the cap, and break on empty pages to
+      // guard against the (rare) Gmail edge case of a token with no messages.
+      const MAX_ANALYTICS_MESSAGES = 2000;
+      const allMessages = [];
+      let pageToken;
+      const fetchStart = Date.now();
+      do {
+        const listResponse = await gmail.users.messages.list({
+          userId: 'me',
+          q: `(unsubscribe OR "opt out" OR "opt-out") after:${afterTimestamp}`,
+          maxResults: 500,
+          ...(pageToken ? { pageToken } : {}),
+        }, { timeout: 15000 });
+        const page = listResponse.data.messages || [];
+        if (page.length === 0) break;
+        const remaining = MAX_ANALYTICS_MESSAGES - allMessages.length;
+        allMessages.push(...page.slice(0, remaining));
+        pageToken = listResponse.data.nextPageToken;
+      } while (pageToken && allMessages.length < MAX_ANALYTICS_MESSAGES);
 
-      capped = !!(listResponse.data.nextPageToken);
-      const messages = listResponse.data.messages || [];
+      capped = allMessages.length >= MAX_ANALYTICS_MESSAGES && !!pageToken;
+      const messages = allMessages;
 
       // Initialise all fetched dates at zero so days with no emails still get stored
       const dateCounts = Object.fromEntries(toFetch.map(d => [d, 0]));
 
       if (messages.length > 0) {
         for (let i = 0; i < messages.length; i += 20) {
+          // Stop metadata fetching if we're within 15s of the Lambda timeout
+          // to ensure we can still write results and return a response.
+          if (Date.now() - fetchStart > 40000) { capped = true; break; }
           const batch = messages.slice(i, i + 20);
           const details = await Promise.all(
             batch.map(msg =>
@@ -823,7 +841,12 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
         }
       }
 
-      await storeAnalyticsCounts(userEmail, dateCounts);
+      // Only persist to DynamoDB when data is complete; if the wall-clock guard
+      // fired (capped), counts are partial — skip caching so the next request
+      // re-fetches rather than serving stale zeros for up to 5 minutes.
+      if (!capped) {
+        await storeAnalyticsCounts(userEmail, dateCounts);
+      }
       const now = new Date().toISOString();
       Object.assign(stored, Object.fromEntries(
         Object.entries(dateCounts).map(([d, count]) => [d, { count, fetchedAt: now }])
