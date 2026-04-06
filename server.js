@@ -34,7 +34,8 @@ let ddb = null;
 if (SESSIONS_TABLE || ALLOWLIST_TABLE || HISTORY_TABLE) {
   const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
   const { DynamoDBDocumentClient } = require('@aws-sdk/lib-dynamodb');
-  ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+  const { NodeHttpHandler } = require('@smithy/node-http-handler');
+  ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ requestHandler: new NodeHttpHandler({ requestTimeout: 3000 }) }));
 }
 
 // ---------------------------------------------------------------------------
@@ -190,11 +191,17 @@ app.use(session({
 // ---------------------------------------------------------------------------
 const crypto = require('crypto');
 
-const _tokenKey = crypto.scryptSync(
+// SESSION_SECRET is already a high-entropy random string from SSM — scrypt's
+// password-stretching is unnecessary and adds 50-200ms to every cold start.
+// hkdfSync is a proper KDF for this use case: fast and still cryptographically sound.
+// Signature: hkdfSync(digest, ikm, salt, info, keylen)
+const _tokenKey = Buffer.from(crypto.hkdfSync(
+  'sha256',
   process.env.SESSION_SECRET || 'dev-secret-change-me',
-  'email-unsub-token-key',
+  Buffer.alloc(0),                          // salt (empty — IKM is already high-entropy)
+  Buffer.from('email-unsub-token-key'),     // info (domain separation label)
   32
-);
+));
 
 function encryptTokens(tokens) {
   const iv = crypto.randomBytes(12);
@@ -619,19 +626,27 @@ app.get('/api/emails', requireAuth, async (req, res) => {
     afterDate.setDate(afterDate.getDate() - daysBack);
     const afterTimestamp = Math.floor(afterDate.getTime() / 1000);
 
-    const listResponse = await gmail.users.messages.list({
-      userId: 'me',
-      q: `after:${afterTimestamp} (unsubscribe OR "opt out" OR "opt-out")`,
-      maxResults: 100,
-    }, { timeout: 8000 });
-
-    const messages = listResponse.data.messages || [];
-    if (!messages.length) return res.json({ emails: [] });
-
     // Scan deadline: return partial results 5s before Lambda times out rather
     // than letting the invocation die with a hard 500.
     const scanDeadline = Date.now() + 55000;
     let truncated = false;
+
+    // Paginate through all matching messages up to the scan deadline
+    const messages = [];
+    let pageToken;
+    do {
+      if (Date.now() > scanDeadline) { truncated = true; break; }
+      const listResponse = await gmail.users.messages.list({
+        userId: 'me',
+        q: `after:${afterTimestamp} (unsubscribe OR "opt out" OR "opt-out")`,
+        maxResults: 100,
+        pageToken,
+      }, { timeout: 8000 });
+      messages.push(...(listResponse.data.messages || []));
+      pageToken = listResponse.data.nextPageToken;
+    } while (pageToken);
+
+    if (!messages.length) return res.json({ emails: [] });
 
     // First pass: fetch metadata only (headers, no body/attachments)
     const metadataHeaderNames = ['From', 'Subject', 'List-Unsubscribe', 'List-Unsubscribe-Post'];

@@ -418,7 +418,14 @@ function setupEmailListDelegation() {
 }
 
 // ── Fetch ─────────────────────────────────────────────────────────────────
+let emailsFetchController = null;
+
 async function fetchEmails() {
+  // Abort any in-flight fetch (mirrors the analytics pattern)
+  if (emailsFetchController) emailsFetchController.abort();
+  emailsFetchController = new AbortController();
+  const signal = emailsFetchController.signal;
+
   const btn = document.getElementById('fetch-btn');
   const loading = document.getElementById('loading');
   const wrap = document.getElementById('table-wrap');
@@ -437,7 +444,7 @@ async function fetchEmails() {
   allEmails = [];
 
   try {
-    const res = await fetch(`/api/emails?range=${currentRange}`);
+    const res = await fetch(`/api/emails?range=${currentRange}`, { signal });
     const data = await res.json();
     if (!res.ok) {
       if (res.status === 401) return window.location.href = '/';
@@ -456,11 +463,12 @@ async function fetchEmails() {
       applyFilters();
     }
   } catch (e) {
+    if (e.name === 'AbortError') return; // superseded by a newer fetch — ignore silently
     loading.style.display = 'none';
     err.textContent = e.message;
     err.style.display = 'block';
   } finally {
-    btn.disabled = false;
+    if (!signal.aborted) btn.disabled = false;
   }
 }
 
@@ -702,12 +710,13 @@ async function confirmDeleteAccount() {
 }
 
 async function init() {
-  const res = await fetch('/auth/status');
+  // Fire auth/status and user-settings in parallel — settings doesn't need
+  // the CSRF token and both are independent DynamoDB reads.
+  const [res] = await Promise.all([fetch('/auth/status'), loadSettings().catch(() => null)]);
   const data = await res.json();
   if (!data.authenticated) return window.location.href = '/';
   csrfToken = data.csrfToken;
   renderUserInfo(data.user);
-  await loadSettings();
   if (data.requiresPolicyAcceptance) {
     document.getElementById('policy-overlay').classList.remove('hidden');
   }
