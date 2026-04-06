@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
+const dns = require('dns').promises;
 const { google } = require('googleapis');
 const path = require('path');
 const serverless = require('serverless-http');
@@ -432,7 +433,9 @@ app.get('/terms', (req, res) => {
 // ---------------------------------------------------------------------------
 app.get('/auth/google', (req, res) => {
   const oauth2Client = createOAuthClient();
-  const state = Buffer.from(JSON.stringify({ rememberMe: req.query.rememberMe === 'true' })).toString('base64');
+  const nonce = crypto.randomBytes(16).toString('hex');
+  req.session.oauthNonce = nonce;
+  const state = Buffer.from(JSON.stringify({ rememberMe: req.query.rememberMe === 'true', nonce })).toString('base64');
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: [
@@ -451,9 +454,19 @@ app.get('/auth/callback', async (req, res) => {
   if (!code) return res.redirect('/?error=no_code');
 
   let rememberMe = false;
+  let stateNonce = null;
   try {
-    rememberMe = JSON.parse(Buffer.from(state || 'e30=', 'base64').toString()).rememberMe;
+    const parsed = JSON.parse(Buffer.from(state || 'e30=', 'base64').toString());
+    rememberMe = parsed.rememberMe;
+    stateNonce = parsed.nonce;
   } catch (_) {}
+
+  // Validate the nonce to prevent login CSRF attacks
+  const sessionNonce = req.session.oauthNonce;
+  delete req.session.oauthNonce;
+  if (!sessionNonce || !stateNonce || sessionNonce !== stateNonce) {
+    return res.redirect('/?error=auth_failed');
+  }
 
   try {
     const oauth2Client = createOAuthClient();
@@ -799,6 +812,56 @@ app.post('/api/unsubscribe', requireAuth, requireCsrf, async (req, res) => {
 // ---------------------------------------------------------------------------
 // One-click unsubscribe (RFC 8058 — server-side POST proxy)
 // ---------------------------------------------------------------------------
+
+// SSRF guard: block outbound requests to private/reserved IP ranges and
+// known cloud-metadata hostnames. Called after URL parsing, before the request.
+const BLOCKED_HOSTNAMES = new Set([
+  'metadata.google.internal',
+  'instance-data',
+  'instance-data.ec2.internal',
+  'metadata.internal',
+]);
+
+function isBlockedIp(ip) {
+  // IPv6 loopback
+  if (ip === '::1' || ip === '0:0:0:0:0:0:0:1') return true;
+  // Unwrap IPv4-mapped IPv6 (::ffff:192.168.1.1)
+  const v4mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  const addr = v4mapped ? v4mapped[1] : ip;
+  const parts = addr.split('.');
+  if (parts.length !== 4 || parts.some(p => isNaN(Number(p)))) return false; // non-IPv4: allow
+  const [a, b, c, d] = parts.map(Number);
+  const n = ((a << 24) | (b << 16) | (c << 8) | d) >>> 0;
+  // Blocked ranges: loopback, link-local (AWS IMDS), RFC-1918, unspecified, multicast, reserved
+  const blocked = [
+    [0x7f000000, 0xff000000], // 127.0.0.0/8   loopback
+    [0xa9fe0000, 0xffff0000], // 169.254.0.0/16 link-local / AWS IMDS
+    [0x0a000000, 0xff000000], // 10.0.0.0/8
+    [0xac100000, 0xfff00000], // 172.16.0.0/12
+    [0xc0a80000, 0xffff0000], // 192.168.0.0/16
+    [0x00000000, 0xff000000], // 0.0.0.0/8
+    [0xe0000000, 0xf0000000], // 224.0.0.0/4   multicast
+    [0xf0000000, 0xf0000000], // 240.0.0.0/4   reserved
+  ];
+  return blocked.some(([network, mask]) => (n & mask) === network);
+}
+
+async function assertSafeUrl(parsed) {
+  const hostname = parsed.hostname.toLowerCase();
+  if (BLOCKED_HOSTNAMES.has(hostname)) {
+    throw Object.assign(new Error('Blocked hostname'), { ssrf: true });
+  }
+  let addresses;
+  try {
+    addresses = await dns.lookup(hostname, { all: true });
+  } catch {
+    throw Object.assign(new Error('Failed to resolve hostname'), { ssrf: true });
+  }
+  if (addresses.some(({ address }) => isBlockedIp(address))) {
+    throw Object.assign(new Error('Blocked IP address'), { ssrf: true });
+  }
+}
+
 app.post('/api/one-click-unsubscribe', requireAuth, requireCsrf, async (req, res) => {
   const { domain, senderEmail, unsubscribeUrl } = req.body;
   if (!domain || !unsubscribeUrl) {
@@ -811,6 +874,13 @@ app.post('/api/one-click-unsubscribe', requireAuth, requireCsrf, async (req, res
   }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     return res.status(400).json({ error: 'Only HTTP(S) URLs are supported' });
+  }
+
+  try {
+    await assertSafeUrl(parsed);
+  } catch (err) {
+    if (err.ssrf) return res.status(400).json({ error: 'URL not allowed' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 
   try {
@@ -839,7 +909,7 @@ app.post('/api/one-click-unsubscribe', requireAuth, requireCsrf, async (req, res
     res.json({ ok: true });
   } catch (err) {
     console.error('One-click unsubscribe error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -905,11 +975,21 @@ app.get('/api/clean-inbox/senders', requireAuth, async (req, res) => {
     res.json({ senders });
   } catch (err) {
     console.error('Clean inbox senders error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 app.post('/api/clean-inbox', requireAuth, requireCsrf, async (req, res) => {
+  // gmail.modify scope is required to trash messages. Check before attempting
+  // any API calls so we surface a clear error rather than silently failing.
+  const grantedScopes = req.session.user.googleTokens?.scope || '';
+  if (!grantedScopes.includes('https://www.googleapis.com/auth/gmail.modify')) {
+    return res.status(403).json({
+      error: 'gmail.modify scope required',
+      message: 'The Clean Inbox feature requires additional Gmail permissions. Please sign out and sign back in to grant access.',
+    });
+  }
+
   try {
     const { ignoreStarred = false, ignoreImportant = false } = req.body;
     const userEmail = req.session.user.email;
@@ -957,20 +1037,22 @@ app.post('/api/clean-inbox', requireAuth, requireCsrf, async (req, res) => {
     const messages = listResponse.data.messages || [];
     const capped = messages.length === 500;
 
-    // Trash messages in parallel batches of 10
+    // Trash messages in parallel batches of 10; count only actual successes
     let trashed = 0;
     for (let i = 0; i < messages.length; i += 10) {
       const batch = messages.slice(i, i + 10);
-      await Promise.all(batch.map(msg => gmail.users.messages.trash({ userId: 'me', id: msg.id }, { timeout: 15000 }).catch(e => {
-        console.error('Trash message error:', e.message);
-      })));
-      trashed += batch.length;
+      const results = await Promise.all(batch.map(msg =>
+        gmail.users.messages.trash({ userId: 'me', id: msg.id }, { timeout: 15000 })
+          .then(() => true)
+          .catch(e => { console.error('Trash message error:', e.message); return false; })
+      ));
+      trashed += results.filter(Boolean).length;
     }
 
     res.json({ trashed, capped });
   } catch (err) {
     console.error('Clean inbox error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
