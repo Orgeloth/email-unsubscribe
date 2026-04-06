@@ -168,6 +168,12 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Rate limiting — tighter window on auth endpoints to slow brute-force/
+// enumeration; relaxed limit on API routes for normal interactive use.
+const { rateLimit } = require('express-rate-limit');
+app.use('/auth/', rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true, legacyHeaders: false }));
+app.use('/api/',  rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false }));
 app.use(session({
   name: 'app.sid',
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
@@ -616,23 +622,29 @@ app.get('/api/emails', requireAuth, async (req, res) => {
     const listResponse = await gmail.users.messages.list({
       userId: 'me',
       q: `after:${afterTimestamp} (unsubscribe OR "opt out" OR "opt-out")`,
-      maxResults: 200,
-    }, { timeout: 15000 });
+      maxResults: 100,
+    }, { timeout: 8000 });
 
     const messages = listResponse.data.messages || [];
     if (!messages.length) return res.json({ emails: [] });
+
+    // Scan deadline: return partial results 5s before Lambda times out rather
+    // than letting the invocation die with a hard 500.
+    const scanDeadline = Date.now() + 55000;
+    let truncated = false;
 
     // First pass: fetch metadata only (headers, no body/attachments)
     const metadataHeaderNames = ['From', 'Subject', 'List-Unsubscribe', 'List-Unsubscribe-Post'];
     const results = [];
     for (let i = 0; i < messages.length; i += 20) {
+      if (Date.now() > scanDeadline) { truncated = true; break; }
       const batch = messages.slice(i, i + 20);
       const details = await Promise.all(batch.map(msg =>
         gmail.users.messages.get({
           userId: 'me', id: msg.id,
           format: 'METADATA',
           metadataHeaders: metadataHeaderNames,
-        }, { timeout: 15000 }).catch(() => null)
+        }, { timeout: 8000 }).catch(() => null)
       ));
       results.push(...details.filter(Boolean));
     }
@@ -647,9 +659,10 @@ app.get('/api/emails', requireAuth, async (req, res) => {
 
     const fullFetched = new Map();
     for (let i = 0; i < noHeaderIds.length; i += 20) {
+      if (Date.now() > scanDeadline) { truncated = true; break; }
       const batch = noHeaderIds.slice(i, i + 20);
       const details = await Promise.all(batch.map(id =>
-        gmail.users.messages.get({ userId: 'me', id, format: 'full' }, { timeout: 15000 }).catch(() => null)
+        gmail.users.messages.get({ userId: 'me', id, format: 'full' }, { timeout: 8000 }).catch(() => null)
       ));
       for (const d of details.filter(Boolean)) fullFetched.set(d.data.id, d);
     }
@@ -692,14 +705,14 @@ app.get('/api/emails', requireAuth, async (req, res) => {
     const unsubscribedDomains = await getUnsubscribedDomains(req.session.user.email);
     emails.forEach(e => { e.alreadyUnsubscribed = unsubscribedDomains.has(e.domain); });
 
-    res.json({ emails, total: emails.length });
+    res.json({ emails, total: emails.length, truncated });
   } catch (err) {
     console.error('Gmail API error:', err.message);
     if (err.code === 401 || err.response?.status === 401) {
       req.session.destroy();
       return res.status(401).json({ error: 'Session expired, please log in again' });
     }
-    res.status(500).json({ error: 'Failed to fetch emails: ' + err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

@@ -444,8 +444,12 @@ async function fetchEmails() {
       throw new Error(data.error || 'Failed to fetch emails');
     }
     loading.style.display = 'none';
+    if (data.truncated) {
+      err.textContent = 'Your inbox is large — showing partial results. Try a shorter date range for complete results.';
+      err.style.display = 'block';
+    }
     if (!data.emails?.length) {
-      empty.style.display = 'block';
+      if (!data.truncated) empty.style.display = 'block';
     } else {
       allEmails = data.emails;
       unsubscribedDomains = new Set(data.emails.filter(e => e.alreadyUnsubscribed).map(e => e.domain));

@@ -57,6 +57,7 @@ export class EmailUnsubscribeStack extends cdk.Stack {
       partitionKey: { name: 'userEmail', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'domain', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
@@ -65,6 +66,7 @@ export class EmailUnsubscribeStack extends cdk.Stack {
       partitionKey: { name: 'userEmail', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'date', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
       timeToLiveAttribute: 'expiresAt',
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
@@ -126,7 +128,7 @@ export class EmailUnsubscribeStack extends cdk.Stack {
       handler: 'server.handler',
       code: appCode,
       memorySize: 256,
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.seconds(60),
       logRetention: logs.RetentionDays.ONE_MONTH,
       environment: {
         NODE_ENV: 'production',
@@ -260,14 +262,15 @@ export class EmailUnsubscribeStack extends cdk.Stack {
           FROM_EMAIL: 'admin@dorangroup.io',
           FORWARD_TO: 'brad.l.doran@gmail.com',
         },
-        reservedConcurrentExecutions: 10,
+        reservedConcurrentExecutions: 3,
         timeout: cdk.Duration.seconds(30),
+        logRetention: logs.RetentionDays.ONE_WEEK,
       });
 
       emailBucket.grantRead(forwarderFn);
       forwarderFn.addToRolePolicy(new iam.PolicyStatement({
         actions: ['ses:SendRawEmail'],
-        resources: ['*'],
+        resources: [`arn:aws:ses:${this.region}:${this.account}:identity/admin@dorangroup.io`],
       }));
 
       // SES receipt rule set + rule for admin@dorangroup.io
