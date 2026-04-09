@@ -180,6 +180,8 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
   // The theme-init inline script uses the per-request nonce; all other JS is
   // served as external files from 'self' or the pinned CDN host.
   res.setHeader('Content-Security-Policy', [
@@ -188,6 +190,10 @@ app.use((req, res, next) => {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' https://lh3.googleusercontent.com data:",
     "connect-src 'self'",
+    "worker-src 'self'",
+    "child-src 'self'",
+    "base-uri 'self'",
+    "manifest-src 'self'",
     "frame-ancestors 'none'",
     "form-action 'self'",
   ].join('; '));
@@ -354,6 +360,8 @@ async function logUnsubscribe(userEmail, domain, senderEmail, unsubscribeUrl) {
       unsubscribedAt: new Date().toISOString(),
       count: existing.count + 1,
     });
+    // Cap to prevent memory growth on long-running dev servers (Map is insertion-ordered)
+    if (localHistory.size > 500) localHistory.delete(localHistory.keys().next().value);
     return;
   }
   // Invalidate cache so the next email fetch reflects the new unsubscribe
