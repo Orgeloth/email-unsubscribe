@@ -322,8 +322,17 @@ async function deleteAllowlistEntry(email) {
 
 async function getAllAllowlistEntries() {
   if (!ddb || !ALLOWLIST_TABLE) return [];
-  const { Items = [] } = await ddb.send(new ScanCommand({ TableName: ALLOWLIST_TABLE }));
-  return Items.sort((a, b) => (a.addedAt || '').localeCompare(b.addedAt || ''));
+  const items = [];
+  let lastKey;
+  do {
+    const { Items = [], LastEvaluatedKey } = await ddb.send(new ScanCommand({
+      TableName: ALLOWLIST_TABLE,
+      ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
+    }));
+    items.push(...Items);
+    lastKey = LastEvaluatedKey;
+  } while (lastKey);
+  return items.sort((a, b) => (a.addedAt || '').localeCompare(b.addedAt || ''));
 }
 
 // ---------------------------------------------------------------------------
@@ -393,19 +402,35 @@ async function getAllHistory() {
       .sort((a, b) => (b.unsubscribedAt || '').localeCompare(a.unsubscribedAt || ''))
       .map(({ userEmail, unsubscribedAt, count }) => ({ userEmail, unsubscribedAt, count }));
   }
-  const { Items = [] } = await ddb.send(new ScanCommand({
-    TableName: HISTORY_TABLE,
-    ProjectionExpression: 'userEmail, unsubscribedAt, #cnt',
-    ExpressionAttributeNames: { '#cnt': 'count' },
-  }));
-  return Items.sort((a, b) => (b.unsubscribedAt || '').localeCompare(a.unsubscribedAt || ''));
+  const items = [];
+  let lastKey;
+  do {
+    const { Items = [], LastEvaluatedKey } = await ddb.send(new ScanCommand({
+      TableName: HISTORY_TABLE,
+      ProjectionExpression: 'userEmail, unsubscribedAt, #cnt',
+      ExpressionAttributeNames: { '#cnt': 'count' },
+      ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
+    }));
+    items.push(...Items);
+    lastKey = LastEvaluatedKey;
+  } while (lastKey);
+  return items.sort((a, b) => (b.unsubscribedAt || '').localeCompare(a.unsubscribedAt || ''));
 }
 
 async function getActiveSessions() {
   if (!ddb || !SESSIONS_TABLE) return [];
   const now = Math.floor(Date.now() / 1000);
-  const { Items = [] } = await ddb.send(new ScanCommand({ TableName: SESSIONS_TABLE }));
-  return Items
+  const items = [];
+  let lastKey;
+  do {
+    const { Items = [], LastEvaluatedKey } = await ddb.send(new ScanCommand({
+      TableName: SESSIONS_TABLE,
+      ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
+    }));
+    items.push(...Items);
+    lastKey = LastEvaluatedKey;
+  } while (lastKey);
+  return items
     .filter(item => item.expiresAt > now && item.email)
     .map(item => ({
       sessionId: item.sessionId,
@@ -417,6 +442,27 @@ async function getActiveSessions() {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Gmail API retry helper
+// Retries on transient HTTP errors (429, 500, 502, 503, 504) with full jitter
+// exponential backoff. Does NOT retry on 401/403 (auth errors) or 4xx client
+// errors since those won't resolve on retry.
+// ---------------------------------------------------------------------------
+async function withGmailRetry(fn, { maxAttempts = 3, baseDelayMs = 500 } = {}) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const status = Number(err?.response?.status || err?.status || 0);
+      const isTransient = [429, 500, 502, 503, 504].includes(status);
+      const isNetworkError = ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN'].includes(err?.code);
+      if ((!isTransient && !isNetworkError) || attempt === maxAttempts) throw err;
+      const delay = baseDelayMs * Math.pow(2, attempt - 1) * (0.5 + Math.random() * 0.5);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+}
+
 // Analytics helpers
 // ---------------------------------------------------------------------------
 async function getStoredAnalytics(userEmail, dates) {
@@ -431,7 +477,8 @@ async function getStoredAnalytics(userEmail, dates) {
 
 async function storeAnalyticsCounts(userEmail, dateCounts) {
   if (!ddb || !ANALYTICS_TABLE) return;
-  const expiresAt = Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60;
+  // 120-day TTL gives a 60-day buffer beyond the longest frontend window (60 days).
+  const expiresAt = Math.floor(Date.now() / 1000) + 120 * 24 * 60 * 60;
   const entries = Object.entries(dateCounts);
   for (let i = 0; i < entries.length; i += 25) {
     const chunk = entries.slice(i, i + 25);
@@ -674,12 +721,12 @@ app.get('/api/emails', requireAuth, async (req, res) => {
     let pageToken;
     do {
       if (Date.now() > scanDeadline) { truncated = true; break; }
-      const listResponse = await gmail.users.messages.list({
+      const listResponse = await withGmailRetry(() => gmail.users.messages.list({
         userId: 'me',
         q: `after:${afterTimestamp} (unsubscribe OR "opt out" OR "opt-out")`,
         maxResults: 100,
         pageToken,
-      }, { timeout: 8000 });
+      }, { timeout: 8000 }));
       messages.push(...(listResponse.data.messages || []));
       pageToken = listResponse.data.nextPageToken;
     } while (pageToken);
@@ -835,12 +882,12 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
       let pageToken;
       const fetchStart = Date.now();
       do {
-        const listResponse = await gmail.users.messages.list({
+        const listResponse = await withGmailRetry(() => gmail.users.messages.list({
           userId: 'me',
           q: `(unsubscribe OR "opt out" OR "opt-out") after:${afterTimestamp}`,
           maxResults: 500,
           ...(pageToken ? { pageToken } : {}),
-        }, { timeout: 15000 });
+        }, { timeout: 15000 }), { maxAttempts: 2 });
         const page = listResponse.data.messages || [];
         if (page.length === 0) break;
         const remaining = MAX_ANALYTICS_MESSAGES - allMessages.length;
@@ -1158,10 +1205,10 @@ app.post('/api/clean-inbox', requireAuth, requireCsrf, async (req, res) => {
       // Guard the list phase: stop fetching pages after 20s so the trash
       // phase has budget remaining within the 60s Lambda timeout.
       if (Date.now() - fetchStart > 20000) { capped = true; break; }
-      const listResponse = await gmail.users.messages.list({
+      const listResponse = await withGmailRetry(() => gmail.users.messages.list({
         userId: 'me', q: query, maxResults: 500,
         ...(pageToken ? { pageToken } : {}),
-      }, { timeout: 15000 });
+      }, { timeout: 15000 }), { maxAttempts: 2 });
       const page = listResponse.data.messages || [];
       if (page.length === 0) break;
       const remaining = MAX_CLEAN_MESSAGES - allMessages.length;
