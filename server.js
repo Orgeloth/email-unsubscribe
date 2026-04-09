@@ -1067,7 +1067,8 @@ app.post('/api/clean-inbox', requireAuth, requireCsrf, async (req, res) => {
   }
 
   try {
-    const { ignoreStarred = false, ignoreImportant = false } = req.body;
+    const ignoreStarred = req.body.ignoreStarred === true;
+    const ignoreImportant = req.body.ignoreImportant === true;
     const userEmail = req.session.user.email;
 
     // Get unsubscribed senders from history table
@@ -1108,14 +1109,36 @@ app.post('/api/clean-inbox', requireAuth, requireCsrf, async (req, res) => {
     });
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-    // Fetch up to 500 message IDs (one page only)
-    const listResponse = await gmail.users.messages.list({ userId: 'me', q: query, maxResults: 500 }, { timeout: 15000 });
-    const messages = listResponse.data.messages || [];
-    const capped = messages.length === 500;
+    // Paginate message IDs up to the safety cap; use slice to hard-enforce
+    // the ceiling and break on empty pages (rare Gmail edge case).
+    const MAX_CLEAN_MESSAGES = 5000;
+    const allMessages = [];
+    let pageToken;
+    let capped = false;
+    const fetchStart = Date.now();
+    do {
+      // Guard the list phase: stop fetching pages after 20s so the trash
+      // phase has budget remaining within the 60s Lambda timeout.
+      if (Date.now() - fetchStart > 20000) { capped = true; break; }
+      const listResponse = await gmail.users.messages.list({
+        userId: 'me', q: query, maxResults: 500,
+        ...(pageToken ? { pageToken } : {}),
+      }, { timeout: 15000 });
+      const page = listResponse.data.messages || [];
+      if (page.length === 0) break;
+      const remaining = MAX_CLEAN_MESSAGES - allMessages.length;
+      allMessages.push(...page.slice(0, remaining));
+      pageToken = listResponse.data.nextPageToken;
+    } while (pageToken && allMessages.length < MAX_CLEAN_MESSAGES);
 
-    // Trash messages in parallel batches of 10; count only actual successes
+    if (!capped) capped = allMessages.length >= MAX_CLEAN_MESSAGES && !!pageToken;
+    const messages = allMessages;
+
+    // Trash messages in parallel batches of 10; count only actual successes.
+    // Stop if we're within 10s of the Lambda timeout so we can still respond.
     let trashed = 0;
     for (let i = 0; i < messages.length; i += 10) {
+      if (Date.now() - fetchStart > 45000) { capped = true; break; }
       const batch = messages.slice(i, i + 10);
       const results = await Promise.all(batch.map(msg =>
         gmail.users.messages.trash({ userId: 'me', id: msg.id }, { timeout: 15000 })
