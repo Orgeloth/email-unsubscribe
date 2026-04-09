@@ -136,6 +136,30 @@ const app = express();
 app.disable('x-powered-by');
 if (isProd) app.set('trust proxy', 1);
 
+// ---------------------------------------------------------------------------
+// CloudFront origin-secret guard
+// Reject any request that didn't arrive through CloudFront.
+// CloudFront injects X-Origin-Secret on every request to the origin; the
+// Lambda Function URL is not publicly advertised, but this guard ensures
+// even a discovered URL cannot be used to bypass CloudFront (WAF, caching,
+// rate limiting at edge, etc.).
+// ---------------------------------------------------------------------------
+const CLOUDFRONT_ORIGIN_SECRET = process.env.CLOUDFRONT_ORIGIN_SECRET;
+if (isProd && CLOUDFRONT_ORIGIN_SECRET) {
+  const _expectedBuf = Buffer.from(CLOUDFRONT_ORIGIN_SECRET);
+  app.use((req, res, next) => {
+    const header = req.headers['x-origin-secret'] || '';
+    let valid = false;
+    try {
+      const headerBuf = Buffer.from(header);
+      valid = headerBuf.length === _expectedBuf.length &&
+        crypto.timingSafeEqual(headerBuf, _expectedBuf);
+    } catch (_) {}
+    if (!valid) return res.status(403).end();
+    next();
+  });
+}
+
 // Cache app.html at startup for nonce injection. The file is read once and
 // held in memory; the only per-request substitution is the CSP nonce token.
 const appHtmlTemplate = fs.readFileSync(
@@ -517,9 +541,8 @@ app.get('/auth/callback', async (req, res) => {
       lastLoginAt: new Date().toISOString(),
     });
 
-    // Set session
-    req.session._createdAt = Math.floor(Date.now() / 1000);
-    req.session.user = {
+    const maxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const userData = {
       email,
       firstName: firstName || '',
       lastName: lastName || '',
@@ -529,18 +552,28 @@ app.get('/auth/callback', async (req, res) => {
       privacyAcceptedVersion: entry.privacyAcceptedVersion || null,
     };
 
-    // Apply remember me
-    const maxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-    req.session.cookie.maxAge = maxAge;
-
-    // Explicitly save session before redirecting — prevents a race condition
-    // where the redirect fires before the session write to the store completes
-    req.session.save((err) => {
-      if (err) {
-        console.error('Session save error:', err.message);
+    // Regenerate session ID before writing credentials to prevent session fixation.
+    // regenerate() resets req.session, so all data must be set inside the callback.
+    req.session.regenerate((regenErr) => {
+      if (regenErr) {
+        console.error('Session regenerate error:', regenErr.message);
         return res.redirect('/?error=auth_failed');
       }
-      res.redirect('/app');
+      req.session._createdAt = Math.floor(Date.now() / 1000);
+      req.session.user = userData;
+      req.session.cookie.maxAge = maxAge;
+      // Keep originalMaxAge in sync so touch()/rolling don't shrink the cookie
+      // back to the default 1-day TTL for remember-me sessions.
+      req.session.cookie.originalMaxAge = maxAge;
+      // Explicitly save before redirecting — prevents a race condition where
+      // the redirect fires before the session write to the store completes.
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err.message);
+          return res.redirect('/?error=auth_failed');
+        }
+        res.redirect('/app');
+      });
     });
   } catch (err) {
     console.error('OAuth callback error:', err.message);

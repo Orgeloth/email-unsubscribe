@@ -84,6 +84,13 @@ export class EmailUnsubscribeStack extends cdk.Stack {
     const redirectUri = ssm.StringParameter.valueForStringParameter(
       this, `${ssmPrefix}/redirect-uri`
     );
+    // Secret shared between CloudFront and the Lambda origin.
+    // Create before first deploy: aws ssm put-parameter \
+    //   --name /email-unsubscribe/cloudfront-origin-secret \
+    //   --value "$(openssl rand -hex 32)" --type String
+    const cloudfrontOriginSecret = ssm.StringParameter.valueForStringParameter(
+      this, `${ssmPrefix}/cloudfront-origin-secret`
+    );
 
     // ---------------------------------------------------------------------------
     // Lambda function
@@ -139,6 +146,7 @@ export class EmailUnsubscribeStack extends cdk.Stack {
         GOOGLE_CLIENT_SECRET: googleClientSecret,
         SESSION_SECRET: sessionSecret,
         REDIRECT_URI: redirectUri,
+        CLOUDFRONT_ORIGIN_SECRET: cloudfrontOriginSecret,
       },
     });
 
@@ -172,7 +180,22 @@ export class EmailUnsubscribeStack extends cdk.Stack {
       validation: acm.CertificateValidation.fromDns(hostedZone),
     });
 
-    const lambdaOrigin = new origins.FunctionUrlOrigin(fnUrl);
+    const lambdaOrigin = new origins.FunctionUrlOrigin(fnUrl, {
+      customHeaders: { 'x-origin-secret': cloudfrontOriginSecret },
+    });
+
+    // CloudFront Function — strip any viewer-supplied x-origin-secret header
+    // before CloudFront injects its own. Prevents an attacker who knows both
+    // the Function URL and the secret from bypassing the origin guard directly.
+    const stripOriginSecretFn = new cloudfront.Function(this, 'StripOriginSecretFn', {
+      functionName: `${prefix}-strip-origin-secret`,
+      runtime: cloudfront.FunctionRuntime.JS_2_0,
+      code: cloudfront.FunctionCode.fromInline(
+        'function handler(event){' +
+        'delete event.request.headers["x-origin-secret"];' +
+        'return event.request;}'
+      ),
+    });
 
     // Cache policy for immutable static assets — no cookies, no query strings.
     // Deploy workflow invalidates "/*" on every deploy, so 1-day TTL is safe.
@@ -187,12 +210,18 @@ export class EmailUnsubscribeStack extends cdk.Stack {
       cookieBehavior: cloudfront.CacheCookieBehavior.none(),
     });
 
+    const stripOriginSecretAssociation: cloudfront.FunctionAssociation = {
+      function: stripOriginSecretFn,
+      eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+    };
+
     const staticBehavior: cloudfront.BehaviorOptions = {
       origin: lambdaOrigin,
       viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       cachePolicy: staticCachePolicy,
       allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
       originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+      functionAssociations: [stripOriginSecretAssociation],
     };
 
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
@@ -202,6 +231,7 @@ export class EmailUnsubscribeStack extends cdk.Stack {
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
         originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        functionAssociations: [stripOriginSecretAssociation],
       },
       // Static assets — cached at the edge, invalidated on every deploy.
       // /app.js is an exact match (not /*.js) so sw.js keeps the default no-cache behavior.
