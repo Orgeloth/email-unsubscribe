@@ -160,10 +160,13 @@ if (isProd && CLOUDFRONT_ORIGIN_SECRET) {
   });
 }
 
-// Cache app.html at startup for nonce injection. The file is read once and
-// held in memory; the only per-request substitution is the CSP nonce token.
+// Cache HTML templates at startup for nonce injection. Files are read once
+// and held in memory; the only per-request substitution is the CSP nonce.
 const appHtmlTemplate = fs.readFileSync(
   path.join(__dirname, 'views', 'app.html'), 'utf8'
+);
+const landingHtmlTemplate = fs.readFileSync(
+  path.join(__dirname, 'public', 'landing.html'), 'utf8'
 );
 
 // Security headers + per-request CSP nonce
@@ -449,7 +452,9 @@ async function storeAnalyticsCounts(userEmail, dateCounts) {
 // ---------------------------------------------------------------------------
 app.get('/', (req, res) => {
   if (req.session.user) return res.redirect('/app');
-  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+  const html = landingHtmlTemplate.replace('CSP_NONCE', res.locals.cspNonce);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
 });
 
 app.get('/app', requireAuth, (req, res) => {

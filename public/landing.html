@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Unsubscribe">
   <!-- Prevent flash of wrong theme -->
-  <script>
+  <script nonce="CSP_NONCE">
     (function() {
       const t = localStorage.getItem('theme');
       if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches))
@@ -170,22 +170,6 @@
 
   <footer>Read-only Gmail access &nbsp;·&nbsp; Sessions expire after 24 hours &nbsp;·&nbsp; <a href="https://unsub.dorangroup.io/privacy" style="color:var(--text-3);text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-3)'">Privacy Policy</a> &nbsp;·&nbsp; <a href="https://unsub.dorangroup.io/terms" style="color:var(--text-3);text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-3)'">Terms of Service</a></footer>
 
-  <script>
-    function toggleDark() {
-      const dark = document.documentElement.classList.toggle('dark');
-      localStorage.setItem('theme', dark ? 'dark' : 'light');
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('error')) {
-      document.getElementById('error-msg').textContent = 'Sign-in failed. Please try again.';
-    }
-
-    document.getElementById('signin-btn').addEventListener('click', (e) => {
-      e.preventDefault();
-      const rememberMe = document.getElementById('remember-me').checked;
-      window.location.href = `/auth/google?rememberMe=${rememberMe}`;
-    });
-  </script>
+  <script src="/landing.js" defer></script>
 </body>
 </html>

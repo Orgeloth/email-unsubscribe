@@ -234,9 +234,10 @@ export class EmailUnsubscribeStack extends cdk.Stack {
         functionAssociations: [stripOriginSecretAssociation],
       },
       // Static assets — cached at the edge, invalidated on every deploy.
-      // /app.js is an exact match (not /*.js) so sw.js keeps the default no-cache behavior.
+      // Exact matches (not /*.js) so sw.js keeps the default no-cache behavior.
       additionalBehaviors: {
-        '/app.js':  staticBehavior,
+        '/app.js':     staticBehavior,
+        '/landing.js': staticBehavior,
         '/*.css':   staticBehavior,
         '/*.svg':   staticBehavior,
         '/*.png':   staticBehavior,
