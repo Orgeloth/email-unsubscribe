@@ -172,13 +172,47 @@ export class EmailUnsubscribeStack extends cdk.Stack {
       validation: acm.CertificateValidation.fromDns(hostedZone),
     });
 
+    const lambdaOrigin = new origins.FunctionUrlOrigin(fnUrl);
+
+    // Cache policy for immutable static assets — no cookies, no query strings.
+    // Deploy workflow invalidates "/*" on every deploy, so 1-day TTL is safe.
+    // sw.js and manifest.json are intentionally excluded (they need fresh responses).
+    const staticCachePolicy = new cloudfront.CachePolicy(this, 'StaticCachePolicy', {
+      cachePolicyName: `${prefix}-static`,
+      defaultTtl: cdk.Duration.days(1),
+      maxTtl: cdk.Duration.days(365),
+      minTtl: cdk.Duration.seconds(0),
+      headerBehavior: cloudfront.CacheHeaderBehavior.none(),
+      queryStringBehavior: cloudfront.CacheQueryStringBehavior.none(),
+      cookieBehavior: cloudfront.CacheCookieBehavior.none(),
+    });
+
+    const staticBehavior: cloudfront.BehaviorOptions = {
+      origin: lambdaOrigin,
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      cachePolicy: staticCachePolicy,
+      allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+      originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+    };
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       defaultBehavior: {
-        origin: new origins.FunctionUrlOrigin(fnUrl),
+        origin: lambdaOrigin,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
         originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+      },
+      // Static assets — cached at the edge, invalidated on every deploy.
+      // /app.js is an exact match (not /*.js) so sw.js keeps the default no-cache behavior.
+      additionalBehaviors: {
+        '/app.js':  staticBehavior,
+        '/*.css':   staticBehavior,
+        '/*.svg':   staticBehavior,
+        '/*.png':   staticBehavior,
+        '/*.ico':   staticBehavior,
+        '/*.woff2': staticBehavior,
+        '/*.woff':  staticBehavior,
       },
       domainNames: [domain],
       certificate,
